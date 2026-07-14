@@ -25,10 +25,14 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Proposals reviewed by admin only.
 
 ## What's Implemented (Feb 2026)
-- **Auth**: login, /me, logout, forgot/reset password. Bcrypt, JWT (8h access + 7d refresh), httpOnly SameSite=None cookies + Bearer header. Brute force lockout scaffolding via MongoDB (idempotent admin seed).
-- **Admin console**: dashboard w/ metrics + revenue chart + top countries; Representatives CRUD w/ suspend + password reset; Banner Inventory (48 countries across 7 regions, per-country CPM editing); TV Projects list + editorial detail edit w/ image + video upload via Emergent Object Storage; Proposals review (approve/reject with notes); Global Reports (line chart + per-rep performance table).
-- **Rep console**: dashboard w/ revenue metrics + featured TV; Banner Campaign Builder (region toggle, country multi-select, live cost+margin summary); Campaign list; TV Sponsorship Catalog + Editorial project page w/ hero + demo video modal + episode grid picker + sticky sponsorship checkout; Sponsorships list; Submit TV Proposal + track status; Rep Reports.
-- **Seed data**: 1 admin + 2 sample representatives (FR, GB) + 48 countries with regional default CPM + 3 sample TV projects.
+- **Auth**: login, /me, logout, forgot/reset password. Bcrypt, JWT (8h access + 7d refresh), httpOnly SameSite=None cookies + Bearer header. Password reset uses timezone-aware token expiry check and invalidates all outstanding tokens on successful reset.
+- **Resend email integration** (`/app/backend/server.py::send_password_reset_email`) — configurable via `RESEND_API_KEY` and `RESEND_FROM_EMAIL` env vars. Falls back to logging the link when key is empty (sandbox mode).
+- **Multi-role admins**: `owner` (root, seeded, manages other admins) + `admin` (full access minus admin management) + `representative`. Owner-only endpoints: `GET/POST/DELETE /api/owner/admins`.
+- **Audit log**: All state-changing actions written to `db.audit_log` via `audit()` helper. Endpoint `GET /api/admin/audit-log?entity_type=&actor_role=&limit=`. Frontend at `/admin/audit-log`.
+- **Admin console**: dashboard w/ metrics + revenue chart + top countries; Representatives CRUD w/ suspend + password reset; Banner Inventory (48 countries × 7 regions) CPM editor; TV Projects list with **status filter (all/active/draft/closed)** and **per-card status dropdown** (Set active / Draft / Close); Proposals review; Global Reports; **Audit Log**; **Administrators** (owner-only).
+- **Rep console**: dashboard w/ revenue metrics + featured TV; Banner Campaign Builder with **cinematic 2D world map** (react-simple-maps + d3-geo, world-atlas topojson) + **region-list tab** + **per-country impressions override panel**; Campaign list; TV Sponsorship Catalog + Editorial project page w/ hero + demo video modal + episode grid picker + sticky sponsorship checkout; Sponsorships list; Submit TV Proposal + track status; Rep Reports.
+- **TV Project status**: draft/active/closed. Reps only see active projects. Admins can quick-toggle status.
+- **Seed data**: 1 owner + 2 sample representatives (FR, GB) + 48 countries with regional default CPM + 3 sample TV projects.
 
 ## Prioritized Backlog
 ### P1 (post-first-finish)
