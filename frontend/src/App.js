@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import OwnerOnly from "@/components/OwnerOnly";
 import AppShell from "@/components/AppShell";
 import { Toaster } from "sonner";
 
@@ -13,6 +14,8 @@ import TVProjects from "@/pages/admin/TVProjects";
 import TVProjectEdit from "@/pages/admin/TVProjectEdit";
 import Proposals from "@/pages/admin/Proposals";
 import AdminReports from "@/pages/admin/Reports";
+import AuditLog from "@/pages/admin/AuditLog";
+import Admins from "@/pages/admin/Admins";
 
 import RepDashboard from "@/pages/rep/Dashboard";
 import CampaignBuilder from "@/pages/rep/CampaignBuilder";
@@ -40,6 +43,8 @@ function App() {
               <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
               <Route path="/admin/proposals" element={<Proposals />} />
               <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/audit-log" element={<AuditLog />} />
+              <Route path="/admin/admins" element={<OwnerOnly><Admins /></OwnerOnly>} />
             </Route>
 
             <Route element={<ProtectedRoute role="representative"><AppShell role="representative" /></ProtectedRoute>}>

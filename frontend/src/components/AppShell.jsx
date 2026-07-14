@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles } from "lucide-react";
+import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles, ShieldCheck, ScrollText } from "lucide-react";
 
 function Section({ label, children }) {
   return (
@@ -26,11 +26,12 @@ export default function AppShell({ role }) {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const isAdmin = role === "admin";
+  const isOwner = user?.role === "owner";
   const base = isAdmin ? "/admin" : "/rep";
 
   return (
     <div className="min-h-screen flex bg-[#F9F9F6]">
-      <aside className="w-[260px] shrink-0 text-white imh-grain" style={{ background: "#0A1128" }}>
+      <aside className="w-[260px] shrink-0 text-white imh-grain relative" style={{ background: "#0A1128" }}>
         <div className="px-6 pt-8 pb-6 border-b border-[#1E293B]">
           <div className="flex items-center gap-2">
             <span className="imh-dot" style={{ background: "#fff" }} />
@@ -38,7 +39,7 @@ export default function AppShell({ role }) {
           </div>
           <h1 className="font-editorial text-2xl leading-tight mt-1">Media Hub</h1>
           <p className="text-[11px] mt-1" style={{ color: "#93A0C2", letterSpacing: "0.06em" }}>
-            {isAdmin ? "ADMINISTRATOR CONSOLE" : "REPRESENTATIVE CONSOLE"}
+            {isAdmin ? (isOwner ? "OWNER CONSOLE" : "ADMINISTRATOR CONSOLE") : "REPRESENTATIVE CONSOLE"}
           </p>
         </div>
 
@@ -55,6 +56,8 @@ export default function AppShell({ role }) {
             <Section label="Network">
               <Item to={`${base}/representatives`} icon={Users} testId="nav-admin-reps">Representatives</Item>
               <Item to={`${base}/reports`} icon={BarChart3} testId="nav-admin-reports">Reports</Item>
+              <Item to={`${base}/audit-log`} icon={ScrollText} testId="nav-admin-audit">Audit Log</Item>
+              {isOwner && <Item to={`${base}/admins`} icon={ShieldCheck} testId="nav-owner-admins">Administrators</Item>}
             </Section>
           </>
         ) : (
@@ -73,14 +76,17 @@ export default function AppShell({ role }) {
           </>
         )}
 
-        <div className="mt-10 px-6 py-6 border-t border-[#1E293B] absolute-bottom">
+        <div className="mt-10 px-6 py-6 border-t border-[#1E293B]">
           <div className="text-[11px] tracking-widest uppercase" style={{ color: "#93A0C2" }}>Signed in</div>
-          <div className="mt-1 text-sm font-medium">{user?.name}</div>
+          <div className="mt-1 text-sm font-medium flex items-center gap-2">
+            {user?.name}
+            {isOwner && <ShieldCheck size={12} className="text-[#93A0C2]" />}
+          </div>
           <div className="text-xs" style={{ color: "#93A0C2" }}>{user?.email}</div>
           <button
             data-testid="logout-button"
             onClick={async () => { await logout(); nav("/"); }}
-            className="mt-4 inline-flex items-center gap-2 text-xs px-3 py-2 border border-[#334155] hover:bg-[#111a34]">
+            className="mt-4 inline-flex items-center gap-2 text-xs px-3 py-2 border border-[#334155] hover:bg-[#111a34]" style={{ transition: "background 160ms" }}>
             <LogOut size={13} /> Sign out
           </button>
         </div>

@@ -18,8 +18,10 @@ export default function Login() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
 
+  const ADMIN_LIKE = new Set(["admin", "owner"]);
+
   if (user && user !== false) {
-    return <Navigate to={user.role === "admin" ? "/admin" : "/rep"} replace />;
+    return <Navigate to={ADMIN_LIKE.has(user.role) ? "/admin" : "/rep"} replace />;
   }
 
   const submit = async (e) => {
@@ -29,7 +31,7 @@ export default function Login() {
     setBusy(false);
     if (r.ok) {
       toast.success("Signed in", { description: `Welcome, ${r.user.name}` });
-      nav(r.user.role === "admin" ? "/admin" : "/rep", { replace: true });
+      nav(ADMIN_LIKE.has(r.user.role) ? "/admin" : "/rep", { replace: true });
     } else {
       toast.error("Sign in failed", { description: r.error });
     }

@@ -8,13 +8,15 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import uuid
+import asyncio
 import logging
 import bcrypt
 import jwt as pyjwt
 import secrets
 import requests
+import resend
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File, Form, Header, Query
 from fastapi.responses import Response as FastResponse
@@ -30,6 +32,13 @@ REFRESH_TTL = timedelta(days=7)
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 APP_NAME = os.environ.get("APP_NAME", "independent-media-hub")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
+ADMIN_ROLES = {"owner", "admin"}
 
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
@@ -126,14 +135,86 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    if user.get("role") != "admin":
+    if user.get("role") not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Administrator access required")
     return user
 
+async def require_owner(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return user
+
 async def require_rep(user: dict = Depends(get_current_user)) -> dict:
-    if user.get("role") not in ("representative", "admin"):
+    if user.get("role") not in ("representative", "admin", "owner"):
         raise HTTPException(status_code=403, detail="Representative access required")
     return user
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def audit(actor: dict, action: str, entity_type: str, entity_id: str = "", details: Optional[dict] = None):
+    """Record a state-changing action for the platform audit log."""
+    try:
+        await db.audit_log.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_id": actor.get("id"),
+            "actor_email": actor.get("email"),
+            "actor_name": actor.get("name"),
+            "actor_role": actor.get("role"),
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "details": details or {},
+            "created_at": now_iso(),
+        })
+    except Exception as e:
+        logger.warning(f"audit log write failed: {e}")
+
+
+async def send_password_reset_email(to_email: str, name: str, token: str) -> bool:
+    reset_link = f"{FRONTEND_URL.rstrip('/')}/reset-password?token={token}" if FRONTEND_URL else f"/reset-password?token={token}"
+    if not RESEND_API_KEY:
+        logger.info(f"[PASSWORD RESET · no RESEND_API_KEY] link for {to_email}: {reset_link}")
+        return False
+    html = f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F9F9F6;padding:32px 0;font-family:Helvetica,Arial,sans-serif;">
+      <tr><td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #E4E4E1;">
+          <tr><td style="padding:32px 40px 8px 40px;">
+            <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#52525B;">Independent Media Hub</div>
+            <h1 style="font-family:Georgia,serif;font-size:28px;font-weight:600;margin:12px 0 0 0;color:#0A0A0A;">Reset your password</h1>
+          </td></tr>
+          <tr><td style="padding:16px 40px 8px 40px;color:#0A0A0A;font-size:15px;line-height:1.6;">
+            <p style="margin:0 0 16px 0;">Hi {name or 'there'},</p>
+            <p style="margin:0 0 16px 0;">We received a request to reset the password for your Independent Media Hub account. This link is valid for 60 minutes.</p>
+          </td></tr>
+          <tr><td style="padding:16px 40px 24px 40px;">
+            <a href="{reset_link}" style="display:inline-block;background:#0033A0;color:#ffffff;text-decoration:none;padding:14px 24px;font-size:14px;letter-spacing:0.02em;">Reset password &rarr;</a>
+          </td></tr>
+          <tr><td style="padding:0 40px 32px 40px;color:#52525B;font-size:12px;line-height:1.6;">
+            <p style="margin:0 0 8px 0;">If you didn't request this, you can safely ignore this email.</p>
+            <p style="margin:0;word-break:break-all;">Or paste this link into your browser:<br/><span style="font-family:monospace;color:#0033A0;">{reset_link}</span></p>
+          </td></tr>
+          <tr><td style="border-top:1px solid #E4E4E1;padding:16px 40px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#A1A1AA;">&copy; Independent Media Network &middot; Confidential</td></tr>
+        </table>
+      </td></tr>
+    </table>
+    """
+    try:
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": RESEND_FROM_EMAIL,
+            "to": [to_email],
+            "subject": "Reset your Independent Media Hub password",
+            "html": html,
+        })
+        logger.info(f"password reset email sent to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"resend send failed for {to_email}: {e}")
+        logger.info(f"[FALLBACK · resend error] link for {to_email}: {reset_link}")
+        return False
 
 # ---------- Storage ----------
 _storage_key: Optional[str] = None
@@ -201,6 +282,7 @@ class CampaignCreate(BaseModel):
     client_name: str
     country_codes: List[str]
     impressions: int
+    per_country_impressions: Optional[Dict[str, int]] = None
     client_total_price: float
     notes: Optional[str] = ""
 
@@ -251,9 +333,14 @@ class ProposalDecision(BaseModel):
     status: str  # approved | rejected | in_review
     admin_notes: Optional[str] = ""
 
+class AdminCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+class TVProjectStatusUpdate(BaseModel):
+    status: str  # active | draft | closed
+
 
 def strip_id(doc: dict) -> dict:
     if doc is None:
@@ -297,7 +384,7 @@ async def forgot_password(body: ForgotPwBody):
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
             "used": False, "created_at": now_iso(),
         })
-        logger.info(f"[PASSWORD RESET] link for {email}: /reset-password?token={token}")
+        await send_password_reset_email(user["email"], user.get("name", ""), token)
     return {"ok": True, "message": "If the email exists, a reset link has been sent."}
 
 @api.post("/auth/reset-password")
@@ -338,12 +425,14 @@ async def create_rep(body: RepresentativeCreate, _: dict = Depends(require_admin
         "country": body.country, "is_active": body.is_active, "created_at": now_iso(),
     }
     await db.users.insert_one(user)
+    await audit(_, "representative.create", "user", user["id"], {"email": user["email"], "agency_name": user["agency_name"]})
     user.pop("password_hash", None); user.pop("_id", None)
     return user
 
 @api.patch("/admin/representatives/{rep_id}")
 async def update_rep(rep_id: str, body: RepresentativeUpdate, _: dict = Depends(require_admin)):
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    changed = {k: (v if k != "password" else "***") for k, v in updates.items()}
     if "password" in updates:
         updates["password_hash"] = hash_password(updates.pop("password"))
     if updates:
@@ -351,6 +440,7 @@ async def update_rep(rep_id: str, body: RepresentativeUpdate, _: dict = Depends(
     doc = await db.users.find_one({"id": rep_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Representative not found")
+    await audit(_, "representative.update", "user", rep_id, changed)
     doc.pop("_id", None); doc.pop("password_hash", None)
     return doc
 
@@ -359,6 +449,7 @@ async def delete_rep(rep_id: str, _: dict = Depends(require_admin)):
     res = await db.users.delete_one({"id": rep_id, "role": "representative"})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")
+    await audit(_, "representative.delete", "user", rep_id, {})
     return {"ok": True}
 
 
@@ -378,13 +469,14 @@ async def update_inventory_item(country_code: str, body: BannerInventoryItem,
     doc["updated_at"] = now_iso()
     await db.banner_inventory.update_one({"country_code": country_code.upper()},
                                           {"$set": doc}, upsert=True)
+    await audit(_, "inventory.update", "banner_inventory", country_code.upper(), {"price_cpm_usd": doc["price_cpm_usd"]})
     return doc
 
 
 # ---------- Banner Campaigns ----------
 @api.get("/campaigns")
 async def list_campaigns(user: dict = Depends(get_current_user)):
-    q = {} if user["role"] == "admin" else {"rep_id": user["id"]}
+    q = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
     items = await db.campaigns.find(q).sort("created_at", -1).to_list(500)
     for i in items:
         i.pop("_id", None)
@@ -426,13 +518,17 @@ async def create_campaign(body: CampaignCreate, user: dict = Depends(require_rep
 
 # ---------- TV Projects ----------
 @api.get("/tv-projects")
-async def list_tv_projects(user: dict = Depends(get_current_user)):
-    items = await db.tv_projects.find({}).sort("created_at", -1).to_list(500)
+async def list_tv_projects(user: dict = Depends(get_current_user),
+                            status: Optional[str] = Query(None)):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    elif user["role"] == "representative":
+        # reps only see actively sponsorable projects
+        q["status"] = "active"
+    items = await db.tv_projects.find(q).sort("created_at", -1).to_list(500)
     for i in items:
         i.pop("_id", None)
-        i["sponsored_episode_count"] = await db.sponsorships.count_documents(
-            {"tv_project_id": i["id"]}) or 0
-        # compute unique sponsored episodes
         cur = db.sponsorships.find({"tv_project_id": i["id"]})
         eps = set()
         async for s in cur:
@@ -487,7 +583,7 @@ async def delete_tv_project(project_id: str, _: dict = Depends(require_admin)):
 # ---------- Sponsorships ----------
 @api.get("/sponsorships")
 async def list_sponsorships(user: dict = Depends(get_current_user)):
-    q = {} if user["role"] == "admin" else {"rep_id": user["id"]}
+    q = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
     items = await db.sponsorships.find(q).sort("created_at", -1).to_list(500)
     for i in items:
         i.pop("_id", None)
@@ -527,6 +623,11 @@ async def create_sponsorship(body: SponsorshipCreate, user: dict = Depends(requi
         "created_at": now_iso(),
     }
     await db.sponsorships.insert_one(sponsorship)
+    await audit(user, "sponsorship.create", "sponsorship", sponsorship["id"], {
+        "tv_project_title": sponsorship["tv_project_title"], "client_name": sponsorship["client_name"],
+        "episodes": sponsorship["episode_count"], "internal_cost_usd": sponsorship["internal_cost_usd"],
+        "client_total_price_usd": sponsorship["client_total_price_usd"],
+    })
     sponsorship.pop("_id", None)
     return sponsorship
 
@@ -534,7 +635,7 @@ async def create_sponsorship(body: SponsorshipCreate, user: dict = Depends(requi
 # ---------- Proposals ----------
 @api.get("/proposals")
 async def list_proposals(user: dict = Depends(get_current_user)):
-    q = {} if user["role"] == "admin" else {"rep_id": user["id"]}
+    q = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
     items = await db.proposals.find(q).sort("created_at", -1).to_list(500)
     for i in items:
         i.pop("_id", None)
@@ -551,6 +652,7 @@ async def create_proposal(body: ProposalCreate, user: dict = Depends(require_rep
         "status": "in_review", "admin_notes": "", "created_at": now_iso(),
     })
     await db.proposals.insert_one(doc)
+    await audit(user, "proposal.create", "proposal", doc["id"], {"title": doc["title"], "format": doc["format"], "country": doc["country"]})
     doc.pop("_id", None)
     return doc
 
@@ -565,14 +667,83 @@ async def decide_proposal(proposal_id: str, body: ProposalDecision, _: dict = De
     doc = await db.proposals.find_one({"id": proposal_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
+    await audit(_, f"proposal.{body.status}", "proposal", proposal_id, {"admin_notes": body.admin_notes or ""})
     doc.pop("_id", None)
     return doc
+
+
+# ---------- Owner: Admins management ----------
+@api.get("/owner/admins")
+async def list_admins(_: dict = Depends(require_owner)):
+    admins = await db.users.find({"role": {"$in": list(ADMIN_ROLES)}}).to_list(200)
+    for a in admins:
+        a.pop("_id", None); a.pop("password_hash", None)
+    return admins
+
+@api.post("/owner/admins")
+async def create_admin(body: AdminCreate, owner: dict = Depends(require_owner)):
+    email = body.email.lower().strip()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="Email already exists")
+    doc = {
+        "id": str(uuid.uuid4()), "email": email,
+        "password_hash": hash_password(body.password),
+        "name": body.name, "role": "admin",
+        "is_active": True, "created_at": now_iso(),
+    }
+    await db.users.insert_one(doc)
+    await audit(owner, "admin.create", "user", doc["id"], {"email": doc["email"]})
+    doc.pop("password_hash", None); doc.pop("_id", None)
+    return doc
+
+@api.delete("/owner/admins/{admin_id}")
+async def delete_admin(admin_id: str, owner: dict = Depends(require_owner)):
+    target = await db.users.find_one({"id": admin_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Not found")
+    if target.get("role") == "owner":
+        raise HTTPException(status_code=400, detail="Cannot remove the owner account")
+    if target.get("role") != "admin":
+        raise HTTPException(status_code=400, detail="Target is not an administrator")
+    await db.users.delete_one({"id": admin_id})
+    await audit(owner, "admin.delete", "user", admin_id, {"email": target["email"]})
+    return {"ok": True}
+
+
+# ---------- Audit Log ----------
+@api.get("/admin/audit-log")
+async def get_audit_log(
+    _: dict = Depends(require_admin),
+    limit: int = Query(200, ge=1, le=1000),
+    entity_type: Optional[str] = Query(None),
+    actor_role: Optional[str] = Query(None),
+):
+    q: dict = {}
+    if entity_type: q["entity_type"] = entity_type
+    if actor_role: q["actor_role"] = actor_role
+    items = await db.audit_log.find(q).sort("created_at", -1).to_list(limit)
+    for i in items:
+        i.pop("_id", None)
+    return items
+
+
+# ---------- TV Project status quick-toggle ----------
+@api.patch("/admin/tv-projects/{project_id}/status")
+async def set_tv_project_status(project_id: str, body: TVProjectStatusUpdate,
+                                 _: dict = Depends(require_admin)):
+    if body.status not in ("active", "draft", "closed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    res = await db.tv_projects.update_one({"id": project_id}, {"$set": {"status": body.status}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    await audit(_, f"tv_project.status.{body.status}", "tv_project", project_id, {})
+    return {"ok": True, "status": body.status}
 
 
 # ---------- Reports ----------
 @api.get("/reports/overview")
 async def reports_overview(user: dict = Depends(get_current_user)):
-    is_admin = user["role"] == "admin"
+    is_admin = user["role"] in ADMIN_ROLES
     scope = {} if is_admin else {"rep_id": user["id"]}
     campaigns = await db.campaigns.find(scope).to_list(1000)
     sponsorships = await db.sponsorships.find(scope).to_list(1000)
@@ -675,6 +846,7 @@ async def startup():
     await db.sponsorships.create_index("rep_id")
     await db.sponsorships.create_index("tv_project_id")
     await db.proposals.create_index("rep_id")
+    await db.audit_log.create_index([("created_at", -1)])
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
 
     # storage init (non-blocking; log on failure)
@@ -684,7 +856,7 @@ async def startup():
     except Exception as e:
         logger.warning(f"Storage init failed (uploads will not work until fixed): {e}")
 
-    # seed admin
+    # seed owner (root administrator)
     admin_email = os.environ["ADMIN_EMAIL"].lower()
     admin_pw = os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": admin_email})
@@ -692,13 +864,20 @@ async def startup():
         await db.users.insert_one({
             "id": str(uuid.uuid4()), "email": admin_email,
             "password_hash": hash_password(admin_pw),
-            "name": "Platform Administrator", "role": "admin",
+            "name": "Platform Owner", "role": "owner",
             "is_active": True, "created_at": now_iso(),
         })
-        logger.info(f"Seeded admin {admin_email}")
-    elif not verify_password(admin_pw, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email},
-                                   {"$set": {"password_hash": hash_password(admin_pw)}})
+        logger.info(f"Seeded owner {admin_email}")
+    else:
+        updates = {}
+        if not verify_password(admin_pw, existing["password_hash"]):
+            updates["password_hash"] = hash_password(admin_pw)
+        # promote seeded admin -> owner in existing databases
+        if existing.get("role") == "admin":
+            updates["role"] = "owner"
+            updates["name"] = existing.get("name") or "Platform Owner"
+        if updates:
+            await db.users.update_one({"email": admin_email}, {"$set": updates})
 
     # seed sample representatives
     sample_reps = [
@@ -780,10 +959,10 @@ async def startup():
     (creds_dir / "test_credentials.md").write_text(
         f"""# Independent Media Hub – Test Credentials
 
-## Administrator
+## Owner (root administrator)
 - Email: `{os.environ['ADMIN_EMAIL']}`
 - Password: `{os.environ['ADMIN_PASSWORD']}`
-- Role: `admin`
+- Role: `owner` (can create/remove admins, full access)
 
 ## Representative accounts
 - Email: `victor.laurent@parismedia.fr`  Password: `Rep2026!`  Agency: Paris Media Group (FR)

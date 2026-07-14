@@ -1,0 +1,60 @@
+{
+  "summary": "P1/P2 iteration on Independent Media Hub. 40/43 backend pytest tests PASS; 3 fail due to real backend bugs (all in existing endpoints — must be fixed by main agent). All new UI (Admins page, Audit Log page, TV Project status filters/dropdowns, World Map picker, per-country volume panel) render and interact correctly.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/campaigns",
+        "issue": "Missing audit() call — review requires 'campaign.create' entry in /api/admin/audit-log but create_campaign() never writes to audit_log. Add: await audit(user, 'campaign.create', 'campaign', campaign['id'], {...}) after insert_one in server.py around L514.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/campaigns",
+        "issue": "per_country_impressions payload is accepted by CampaignCreate model but IGNORED by handler (server.py L493-500). All countries use body.impressions and the per_country entries have no 'impressions' field. Test with {'FR':150000,'DE':50000} → GET /api/campaigns returns per_country without impressions field. Fix: use body.per_country_impressions.get(c.upper(), body.impressions) for cost math and include 'impressions' in each per_country dict.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/auth/reset-password",
+        "issue": "Returns 500 (TypeError: can't compare offset-naive and offset-aware datetimes) at server.py L395: 'rec[\"expires_at\"] < datetime.now(timezone.utc)'. MongoDB returns naive UTC datetime; either use datetime.utcnow() for comparison OR set tzinfo on rec['expires_at'] before compare. Reset endpoint currently unusable, blocking full password-reset flow.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admins modal (New administrator dialog)", "issues": ["Radix Dialog console warning: 'Missing `Description` or `aria-describedby={undefined}` for {DialogContent}'. Add a <DialogDescription> for a11y."]},
+      {"screen": "Owner dashboard revenue chart", "issues": ["Recharts still emits width(-1)/height(-1) warning on first render (also in iteration 1). Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add audit() call in POST /api/campaigns handler so 'campaign.create' is logged.",
+    "Actually apply per_country_impressions in POST /api/campaigns: use overrides for cost computation and expose per-country 'impressions' in the response and stored doc.",
+    "Fix timezone-comparison bug in POST /api/auth/reset-password (use naive utcnow or make rec['expires_at'] tz-aware before compare).",
+    "Add <DialogDescription> to admins New administrator dialog for a11y."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 992 lines. Please split into routers (auth, admin, campaigns, tv, proposals, reports, owner, audit) before it grows further.",
+    "CampaignCreate.per_country_impressions was added to the model but the handler ignores it — model/handler drift is a common source of silent bugs. Consider a serialization test that round-trips the field.",
+    "audit() failures are only warned (logger.warning) — silently swallowing audit write failures is risky for an audit trail; consider surfacing a metric or at least ERROR level.",
+    "reset_password does not invalidate other outstanding tokens for the same user."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestOwnerAdmins, TestTVStatus, TestPerCountry, TestAuditLog, TestPasswordReset, TestForgotUnknown; updated role assertions from 'admin' to 'owner')"
+  ],
+  "success_rate": {
+    "backend": "93% (40/43 pytest — 3 real bugs)",
+    "frontend": "100% of new P1/P2 flows exercised render & respond correctly"
+  },
+  "test_credentials": "Owner: admin@independentmedia.hub / Admin2026! ; Reps: victor.laurent@parismedia.fr / Rep2026! ; amelia.hart@londonhouse.co.uk / Rep2026!",
+  "seed_data_creation": "Tests created/removed: TEST admin (test_admin2@example.com), TEST rep (test_resetuser@example.com — deleted), TEST audit-trail campaign for Paris rep. New UI test admin 'test_uiadmin@example.com' left in DB (used to verify remove flow indirectly).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini enforces -n 2 --dist loadscope. TestAuditLog is now self-contained (creates its own events) so xdist ordering is not an issue. When re-testing after main-agent fixes, verify (1) audit-log contains 'campaign.create' after POSTing /api/campaigns, (2) GET /api/campaigns per_country[*].impressions matches per_country_impressions in the request, (3) /api/auth/reset-password with a fresh token returns 200 and the user can log in with the new password. UI path for campaign builder is /rep/banners/new; world map tab is default. Only 48 in-inventory countries are clickable on the map; Select All yields 50 rows in per-country-panel in current DB state (banner-inventory has ~49-50 rows including a couple non-country codes).",
+  "rca of the issue": "1) Missing audit call in create_campaign — likely oversight when audit() was added to other handlers. 2) per_country_impressions was added to the pydantic model but the handler logic wasn't updated to consume it. 3) datetime comparison bug: MongoDB motor returns naive datetime by default; the aware datetime.now(timezone.utc) comparison at reset-password L395 raises TypeError. Reproduction: POST /api/auth/forgot-password with a valid email, grep supervisor log for token, POST /api/auth/reset-password with that token → 500. Fix: either store expires_at with tzinfo consistently, or normalize on read (rec['expires_at'].replace(tzinfo=timezone.utc))."
+}
