@@ -34,7 +34,7 @@ export default function TVProjects() {
   const [form, setForm] = useState({
     title: "", tagline: "", synopsis: "", hero_image_url: "", demo_video_url: "",
     target_audience: "", distribution: "", languages: "English",
-    total_episodes: 10, price_per_episode_usd: 500, sponsorship_rights: "",
+    total_episodes: 10, sponsorship_rights: "",
     status: "active",
   });
 
@@ -58,14 +58,13 @@ export default function TVProjects() {
         ...form,
         languages: form.languages.split(",").map(s => s.trim()).filter(Boolean),
         total_episodes: Number(form.total_episodes),
-        price_per_episode_usd: Number(form.price_per_episode_usd),
       };
       await api.post("/admin/tv-projects", payload);
       toast.success("TV project published");
       setOpen(false);
       setForm({ title: "", tagline: "", synopsis: "", hero_image_url: "", demo_video_url: "",
         target_audience: "", distribution: "", languages: "English",
-        total_episodes: 10, price_per_episode_usd: 500, sponsorship_rights: "", status: "active" });
+        total_episodes: 10, sponsorship_rights: "", status: "active" });
       await load();
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setSaving(false); }
@@ -124,7 +123,6 @@ export default function TVProjects() {
                   <F label="Distribution"><Input data-testid="tv-distribution" value={form.distribution} onChange={e => setForm({ ...form, distribution: e.target.value })} /></F>
                   <F label="Languages (comma-separated)" full><Input data-testid="tv-languages" value={form.languages} onChange={e => setForm({ ...form, languages: e.target.value })} /></F>
                   <F label="Total episodes"><Input data-testid="tv-episodes" type="number" value={form.total_episodes} onChange={e => setForm({ ...form, total_episodes: e.target.value })} /></F>
-                  <F label="Internal price / episode (USD)"><Input data-testid="tv-price" type="number" value={form.price_per_episode_usd} onChange={e => setForm({ ...form, price_per_episode_usd: e.target.value })} /></F>
                   <F label="Sponsorship rights" full><Textarea data-testid="tv-rights" rows={3} className="rounded-none" value={form.sponsorship_rights} onChange={e => setForm({ ...form, sponsorship_rights: e.target.value })} /></F>
                   <F label="Initial status">
                     <select className="w-full h-10 border border-[#D4D4D0] px-3 text-sm rounded-none" data-testid="tv-status"
@@ -157,7 +155,7 @@ export default function TVProjects() {
               </Link>
               <div className="p-5">
                 <div className="flex items-center justify-between">
-                  <div className="imh-eyebrow">{p.total_episodes} episodes · {usd(p.price_per_episode_usd)}/ep</div>
+                  <div className="imh-eyebrow">{p.total_episodes} episodes</div>
                   <span className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-mono-imh" style={{ background: s.bg, color: s.color }}>{s.label}</span>
                 </div>
                 <Link to={`/admin/tv-projects/${p.id}`}><h3 className="font-editorial text-2xl mt-2 leading-tight">{p.title}</h3></Link>

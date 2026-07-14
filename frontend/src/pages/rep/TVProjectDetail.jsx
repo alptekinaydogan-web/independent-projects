@@ -4,46 +4,44 @@ import api, { formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { usd } from "@/lib/constants";
-import { ChevronLeft, PlayCircle } from "lucide-react";
+import { ChevronLeft, PlayCircle, Send } from "lucide-react";
 
 export default function TVProjectDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const [p, setP] = useState(null);
   const [selected, setSelected] = useState(new Set());
-  const [clientName, setClientName] = useState("");
-  const [clientPrice, setClientPrice] = useState("");
+  const [proposalName, setProposalName] = useState("");
+  const [clientRef, setClientRef] = useState("");
+  const [offerAmount, setOfferAmount] = useState("");
+  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
 
-  const load = () => api.get(`/tv-projects/${id}`).then(r => setP(r.data));
-  useEffect(() => { load(); }, [id]);
-
+  useEffect(() => { api.get(`/tv-projects/${id}`).then(r => setP(r.data)); }, [id]);
   const taken = useMemo(() => new Set((p?.sponsored_episodes || []).map(e => e.episode)), [p]);
-  const internal = (selected.size) * (p?.price_per_episode_usd || 0);
-  const priceNum = Number(clientPrice) || 0;
-  const margin = Math.round((priceNum - internal) * 100) / 100;
 
   if (!p) return <div className="p-10 imh-eyebrow">Loading…</div>;
 
-  const toggleEp = (n) => {
-    if (taken.has(n)) return;
-    const s = new Set(selected);
-    s.has(n) ? s.delete(n) : s.add(n);
-    setSelected(s);
-  };
+  const toggleEp = (n) => { if (taken.has(n)) return; const s = new Set(selected); s.has(n) ? s.delete(n) : s.add(n); setSelected(s); };
 
   const submit = async () => {
-    if (!clientName || selected.size === 0 || !priceNum) { toast.error("Complete the sponsorship form"); return; }
+    if (!proposalName || !clientRef || selected.size === 0 || !offerAmount)
+      return toast.error("Complete the proposal form");
+    if (Number(offerAmount) <= 0) return toast.error("Offer amount must be positive");
     setBusy(true);
     try {
       await api.post("/sponsorships", {
-        tv_project_id: p.id, client_name: clientName,
-        episode_numbers: Array.from(selected), client_total_price: priceNum,
+        tv_project_id: p.id,
+        proposal_name: proposalName,
+        client_reference: clientRef,
+        episode_numbers: Array.from(selected),
+        offer_amount_usd: Number(offerAmount),
+        notes,
       });
-      toast.success("Sponsorship confirmed");
+      toast.success("Sponsorship proposal submitted for review");
       nav("/rep/sponsorships");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(false); }
@@ -51,7 +49,6 @@ export default function TVProjectDetail() {
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
       <div className="relative w-full h-[560px] bg-[#050A18]">
         {p.hero_image_url && <img src={p.hero_image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />}
         <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(5,10,24,0.35) 0%, rgba(5,10,24,0.95) 100%)" }} />
@@ -70,7 +67,6 @@ export default function TVProjectDetail() {
         </div>
       </div>
 
-      {/* Body */}
       <div className="max-w-6xl mx-auto px-10 py-16 grid grid-cols-1 lg:grid-cols-12 gap-14">
         <article className="lg:col-span-8">
           <section>
@@ -83,8 +79,8 @@ export default function TVProjectDetail() {
             <Facts label="Distribution" value={p.distribution || "—"} />
             <Facts label="Languages" value={(p.languages || []).join(", ") || "—"} />
             <Facts label="Episodes" value={p.total_episodes} />
-            <Facts label="Internal cost / episode" value={usd(p.price_per_episode_usd)} />
             <Facts label="Currently sponsored" value={`${p.sponsored_episodes?.length || 0} / ${p.total_episodes}`} />
+            <Facts label="Format" value="Negotiated proposal" />
           </section>
 
           {p.sponsorship_rights && (
@@ -96,7 +92,7 @@ export default function TVProjectDetail() {
 
           <section className="mt-14 border-t border-[#E4E4E1] pt-10">
             <div className="imh-eyebrow">Episode Availability</div>
-            <h3 className="font-editorial text-2xl mt-2">Select the episodes you want to sponsor</h3>
+            <h3 className="font-editorial text-2xl mt-2">Select the episodes for your proposal</h3>
             <div className="mt-6 grid grid-cols-6 md:grid-cols-10 gap-2" data-testid="episode-grid">
               {Array.from({ length: p.total_episodes }, (_, i) => i + 1).map(n => {
                 const isTaken = taken.has(n);
@@ -120,25 +116,25 @@ export default function TVProjectDetail() {
         </article>
 
         <aside className="lg:col-span-4">
-          <div className="imh-card p-6 sticky top-6" data-testid="sponsorship-checkout">
-            <div className="imh-eyebrow">Sponsorship checkout</div>
-            <h3 className="font-editorial text-2xl mt-2">Confirm your commitment</h3>
-
+          <div className="imh-card p-6 sticky top-6" data-testid="sponsorship-proposal-form">
+            <div className="imh-eyebrow">Commercial proposal</div>
+            <h3 className="font-editorial text-2xl mt-2">Submit for review</h3>
             <div className="mt-6 space-y-4">
-              <F label="Your client name"><Input data-testid="sp-client" value={clientName} onChange={e => setClientName(e.target.value)} /></F>
-              <F label="Client total price (USD)"><Input data-testid="sp-price" type="number" value={clientPrice} onChange={e => setClientPrice(e.target.value)} /></F>
+              <F label="Proposal name"><Input data-testid="sp-name" value={proposalName} onChange={e => setProposalName(e.target.value)} /></F>
+              <F label="Client reference (private)"><Input data-testid="sp-client" value={clientRef} onChange={e => setClientRef(e.target.value)} /></F>
+              <F label="Your offer to Independent Media Network (USD)">
+                <Input data-testid="sp-offer" type="number" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} />
+              </F>
+              <F label="Notes"><Textarea data-testid="sp-notes" rows={3} className="rounded-none" value={notes} onChange={e => setNotes(e.target.value)} /></F>
             </div>
-
             <dl className="mt-6 divide-y divide-[#E4E4E1]">
               <Row label="Episodes selected" value={<span className="font-mono-imh">{selected.size}</span>} />
-              <Row label="Internal cost" value={<span className="font-mono-imh">{usd(internal)}</span>} />
-              <Row label="Client price" value={<span className="font-mono-imh">{usd(priceNum)}</span>} />
-              <Row label="Your margin" value={<span className="font-mono-imh" style={{ color: margin >= 0 ? "#166534" : "#991B1B" }}>{usd(margin)}</span>} />
+              <Row label="Status after submit" value={<span className="font-mono-imh text-[#B45309]">Pending review</span>} />
             </dl>
             <Button onClick={submit} disabled={busy} data-testid="sp-submit" className="mt-6 w-full h-11 rounded-none bg-[#0033A0] hover:bg-[#002277] text-white">
-              {busy ? "Confirming…" : "Confirm sponsorship"}
+              {busy ? "Submitting…" : "Submit for review"} <Send size={14} className="ml-2" />
             </Button>
-            <p className="mt-3 text-[11px] text-[#52525B]">Internal cost is your platform cost. Your client will only see the client price you set.</p>
+            <p className="mt-3 text-[11px] text-[#52525B]">Your customer relationship stays private. Independent Media Network administrators will decide on your proposal.</p>
           </div>
         </aside>
       </div>

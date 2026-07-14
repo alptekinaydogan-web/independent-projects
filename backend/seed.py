@@ -1,32 +1,84 @@
-"""Startup seeding — idempotent. Creates the owner, sample reps, banner inventory,
-sample TV projects, and writes test_credentials.md."""
+"""Startup seeding — idempotent. Now uses the network×position inventory catalog.
+Legacy campaigns/sponsorships are migrated to the proposal workflow (approved status
+preserved so already-booked work stays visible)."""
 import uuid
 from pathlib import Path
 from core import db, now_iso, ADMIN_EMAIL, ADMIN_PASSWORD, logger
 from security import hash_password, verify_password
-from countries_data import COUNTRIES, DEFAULT_PRICES
+from networks_data import all_inventory
 
 
 async def create_indexes() -> None:
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
-    await db.banner_inventory.create_index("country_code", unique=True)
     await db.campaigns.create_index("rep_id")
+    await db.campaigns.create_index("status")
     await db.tv_projects.create_index("id", unique=True)
     await db.sponsorships.create_index("rep_id")
     await db.sponsorships.create_index("tv_project_id")
+    await db.sponsorships.create_index("status")
     await db.proposals.create_index("rep_id")
     await db.audit_log.create_index([("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.notifications.create_index([("event_type", 1), ("entity_id", 1)])
     await db.campaigns.create_index("end_date")
-    # Backfill missing severity/archived fields on legacy notifications
-    await db.notifications.update_many(
-        {"severity": {"$exists": False}}, {"$set": {"severity": "info"}})
-    await db.notifications.update_many(
-        {"archived": {"$exists": False}}, {"$set": {"archived": False}})
-    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.notifications.update_many({"severity": {"$exists": False}}, {"$set": {"severity": "info"}})
+    await db.notifications.update_many({"archived": {"$exists": False}}, {"$set": {"archived": False}})
+
+
+async def migrate_legacy_data() -> None:
+    """Migrate iteration_1..5 data into the new proposal schema.
+
+    - old campaigns.status='confirmed' -> 'approved'
+    - drop revenue/margin/cost fields
+    - infer network/position from first available inventory item (Global Hero)
+    - old sponsorships.status='confirmed' -> 'approved'
+    """
+    inv = all_inventory()
+    default_inv = next((i for i in inv if i["network_key"] == "global" and i["position_key"] == "hero"),
+                       inv[0])
+
+    async for c in db.campaigns.find({"status": "confirmed"}):
+        upd = {"status": "approved", "decided_at": c.get("created_at", now_iso())}
+        if "network_key" not in c:
+            upd.update({
+                "inventory_id": default_inv["id"],
+                "network_key": default_inv["network_key"],
+                "network_name": default_inv["network_name"],
+                "position_key": default_inv["position_key"],
+                "position_name": default_inv["position_name"],
+            })
+        if "offer_amount_usd" not in c:
+            upd["offer_amount_usd"] = c.get("client_total_price_usd") or 0
+        if "client_reference" not in c:
+            upd["client_reference"] = c.get("client_name", "")
+        await db.campaigns.update_one({"id": c["id"]},
+                                       {"$set": upd,
+                                        "$unset": {"per_country": "", "internal_cost_usd": "",
+                                                   "client_total_price_usd": "", "margin_usd": "",
+                                                   "total_impressions": ""}})
+
+    async for s in db.sponsorships.find({"status": "confirmed"}):
+        upd = {"status": "approved", "decided_at": s.get("created_at", now_iso())}
+        if "offer_amount_usd" not in s:
+            upd["offer_amount_usd"] = s.get("client_total_price_usd") or 0
+        if "client_reference" not in s:
+            upd["client_reference"] = s.get("client_name", "")
+        if "proposal_name" not in s:
+            upd["proposal_name"] = s.get("tv_project_title", "")
+        await db.sponsorships.update_one({"id": s["id"]},
+                                          {"$set": upd,
+                                           "$unset": {"internal_cost_usd": "",
+                                                      "client_total_price_usd": "", "margin_usd": ""}})
+
+    # Drop the legacy country-based banner_inventory collection — no longer used
+    if "banner_inventory" in await db.list_collection_names():
+        await db.banner_inventory.drop()
+
+    # Remove TV project fixed-price fields
+    await db.tv_projects.update_many({"price_per_episode_usd": {"$exists": True}},
+                                      {"$unset": {"price_per_episode_usd": ""}})
 
 
 async def seed_owner() -> None:
@@ -69,17 +121,6 @@ async def seed_reps() -> None:
             })
 
 
-async def seed_inventory() -> None:
-    if await db.banner_inventory.count_documents({}) > 0:
-        return
-    for code, name, region in COUNTRIES:
-        await db.banner_inventory.insert_one({
-            "country_code": code, "country_name": name, "region": region,
-            "price_cpm_usd": DEFAULT_PRICES[region],
-            "min_impressions": 10000, "updated_at": now_iso(),
-        })
-
-
 async def seed_tv_projects() -> None:
     if await db.tv_projects.count_documents({}) > 0:
         return
@@ -93,7 +134,7 @@ async def seed_tv_projects() -> None:
             "target_audience": "Adults 25-54, socially engaged, culturally curious",
             "distribution": "Independent TV + national broadcast partners in 40 countries",
             "languages": ["English", "French", "Spanish", "Arabic", "Mandarin"],
-            "total_episodes": 100, "price_per_episode_usd": 300,
+            "total_episodes": 100,
             "sponsorship_rights": "Opening credit, closing credit, one 15s sponsor spot mid-roll, digital pre-roll on VOD.",
             "status": "active",
         },
@@ -106,7 +147,7 @@ async def seed_tv_projects() -> None:
             "target_audience": "Executives, policy makers, cultural elite",
             "distribution": "Independent TV, YouTube, curated syndication",
             "languages": ["English"],
-            "total_episodes": 24, "price_per_episode_usd": 900,
+            "total_episodes": 24,
             "sponsorship_rights": "Presenting sponsor billing, one dedicated 30s spot, logo integration.",
             "status": "active",
         },
@@ -119,7 +160,7 @@ async def seed_tv_projects() -> None:
             "target_audience": "Nature enthusiasts, families, premium travel audiences",
             "distribution": "Independent TV Global + airline in-flight partners",
             "languages": ["English", "German", "Japanese"],
-            "total_episodes": 12, "price_per_episode_usd": 1800,
+            "total_episodes": 12,
             "sponsorship_rights": "Full episode presenting sponsor. Two dedicated spots. Digital rights included.",
             "status": "active",
         },
@@ -137,30 +178,18 @@ def write_credentials_file() -> None:
 ## Owner (root administrator)
 - Email: `{ADMIN_EMAIL}`
 - Password: `{ADMIN_PASSWORD}`
-- Role: `owner` (can create/remove admins, full access)
+- Role: `owner`
 
 ## Representative accounts
 - Email: `victor.laurent@parismedia.fr`  Password: `Rep2026!`  Agency: Paris Media Group (FR)
 - Email: `amelia.hart@londonhouse.co.uk`  Password: `Rep2026!`  Agency: London House Media (GB)
-
-## Auth endpoints
-- POST /api/auth/login  {{ email, password }}
-- POST /api/auth/logout
-- GET  /api/auth/me
-- POST /api/auth/forgot-password
-- POST /api/auth/reset-password
-
-## Roles
-- `owner`  — root administrator, seeded once, can create/remove `admin` accounts (POST/DELETE /api/owner/admins)
-- `admin`  — full administrator access except managing other admins
-- `representative` — licensed commercial partner
 """)
 
 
 async def run_seed() -> None:
     await create_indexes()
+    await migrate_legacy_data()
     await seed_owner()
     await seed_reps()
-    await seed_inventory()
     await seed_tv_projects()
     write_credentials_file()

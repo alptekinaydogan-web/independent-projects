@@ -9,7 +9,8 @@ import { Toaster } from "sonner";
 import Login from "@/pages/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import Representatives from "@/pages/admin/Representatives";
-import BannerInventory from "@/pages/admin/BannerInventory";
+import BannerInventory from "@/pages/InventoryCatalog";
+import ProposalsReview from "@/pages/admin/ProposalsReview";
 import TVProjects from "@/pages/admin/TVProjects";
 import TVProjectEdit from "@/pages/admin/TVProjectEdit";
 import Proposals from "@/pages/admin/Proposals";
@@ -39,7 +40,8 @@ function App() {
             <Route element={<ProtectedRoute role="admin"><AppShell role="admin" /></ProtectedRoute>}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/representatives" element={<Representatives />} />
-              <Route path="/admin/banner-inventory" element={<BannerInventory />} />
+              <Route path="/admin/inventory" element={<BannerInventory />} />
+              <Route path="/admin/proposals-review" element={<ProposalsReview />} />
               <Route path="/admin/tv-projects" element={<TVProjects />} />
               <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
               <Route path="/admin/proposals" element={<Proposals />} />

@@ -5,109 +5,53 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { REGIONS, usd } from "@/lib/constants";
-import { ArrowRight, X, Map as MapIcon, List } from "lucide-react";
-import WorldMap from "@/components/WorldMap";
+import { Send } from "lucide-react";
 
-export default function CampaignBuilder() {
+export default function BannerProposalBuilder() {
   const nav = useNavigate();
-  const [inv, setInv] = useState([]);
-  const [selected, setSelected] = useState(new Set());
-  const [defaultImpressions, setDefaultImpressions] = useState(500000);
-  const [perCountryImp, setPerCountryImp] = useState({}); // { CODE: number }
-  const [campaignName, setCampaignName] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [clientPrice, setClientPrice] = useState("");
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10);
+  const [catalog, setCatalog] = useState({ networks: [], positions: [], items: [] });
+  const [selectedInv, setSelectedInv] = useState(null);
+  const [form, setForm] = useState({
+    proposal_name: "", client_reference: "",
+    impressions: "",
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })(),
+    offer_amount_usd: "",
+    notes: "",
   });
-  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { api.get("/banner-inventory").then(r => setInv(r.data)); }, []);
-
-  const inventoryByCode = useMemo(() => Object.fromEntries(inv.map(i => [i.country_code, i])), [inv]);
-  const inventoryCodes = useMemo(() => inv.map(i => i.country_code), [inv]);
+  useEffect(() => { api.get("/inventory").then(r => setCatalog(r.data)); }, []);
 
   const grouped = useMemo(() => {
-    const g = {};
-    for (const i of inv) (g[i.region] ||= []).push(i);
-    for (const k of Object.keys(g)) g[k].sort((a, b) => a.country_name.localeCompare(b.country_name));
-    return g;
-  }, [inv]);
-
-  const toggle = (code) => {
-    const s = new Set(selected);
-    s.has(code) ? s.delete(code) : s.add(code);
-    setSelected(s);
-  };
-
-  const toggleRegion = (region) => {
-    const s = new Set(selected);
-    const codes = grouped[region].map(i => i.country_code);
-    const allSel = codes.every(c => s.has(c));
-    codes.forEach(c => { allSel ? s.delete(c) : s.add(c); });
-    setSelected(s);
-  };
-
-  const selectAll = () => setSelected(new Set(inv.map(i => i.country_code)));
-  const clear = () => { setSelected(new Set()); setPerCountryImp({}); };
-
-  const setCountryImp = (code, val) => {
-    const n = val === "" ? "" : Number(val);
-    setPerCountryImp({ ...perCountryImp, [code]: n });
-  };
-  const getImp = (code) => {
-    const v = perCountryImp[code];
-    if (v === "" || v == null) return defaultImpressions;
-    return v;
-  };
-
-  const perCountry = useMemo(() => {
-    const list = [];
-    for (const code of selected) {
-      const inv = inventoryByCode[code];
-      if (!inv) continue;
-      const imp = getImp(code);
-      const cost = Math.round(inv.price_cpm_usd * imp / 1000 * 100) / 100;
-      list.push({ ...inv, impressions: imp, internal_cost: cost });
+    const g = new Map();
+    for (const it of catalog.items) {
+      if (!g.has(it.network_key)) g.set(it.network_key, { network_key: it.network_key, network_name: it.network_name, network_tagline: it.network_tagline, items: [] });
+      g.get(it.network_key).items.push(it);
     }
-    return list.sort((a, b) => a.country_name.localeCompare(b.country_name));
-  }, [inventoryByCode, selected, perCountryImp, defaultImpressions]);
-
-  const totalInternal = perCountry.reduce((a, b) => a + b.internal_cost, 0);
-  const totalImpressions = perCountry.reduce((a, b) => a + b.impressions, 0);
-  const priceNum = Number(clientPrice) || 0;
-  const margin = Math.round((priceNum - totalInternal) * 100) / 100;
-  const marginPct = priceNum > 0 ? Math.round((margin / priceNum) * 100) : 0;
+    return Array.from(g.values());
+  }, [catalog]);
 
   const submit = async () => {
-    if (!campaignName || !clientName || selected.size === 0 || !defaultImpressions || !priceNum) {
-      toast.error("Fill all fields and select at least one country"); return;
-    }
-    if (endDate && startDate && endDate < startDate) {
-      toast.error("End date must be on or after start date"); return;
-    }
+    if (!selectedInv) return toast.error("Choose an inventory product first");
+    if (!form.proposal_name || !form.client_reference || !form.offer_amount_usd)
+      return toast.error("Fill proposal name, client reference and offer amount");
+    if (Number(form.offer_amount_usd) <= 0) return toast.error("Offer amount must be positive");
     setBusy(true);
     try {
-      const per = {};
-      for (const [k, v] of Object.entries(perCountryImp)) {
-        if (v !== "" && v != null && selected.has(k)) per[k] = Number(v);
-      }
       await api.post("/campaigns", {
-        campaign_name: campaignName, client_name: clientName,
-        country_codes: Array.from(selected),
-        impressions: Number(defaultImpressions),
-        per_country_impressions: per,
-        client_total_price: priceNum,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        notes,
+        proposal_name: form.proposal_name,
+        client_reference: form.client_reference,
+        inventory_id: selectedInv.id,
+        impressions: form.impressions ? Number(form.impressions) : null,
+        start_date: form.start_date || undefined,
+        end_date: form.end_date || undefined,
+        offer_amount_usd: Number(form.offer_amount_usd),
+        notes: form.notes,
       });
-      toast.success("Campaign confirmed");
+      toast.success("Commercial proposal submitted");
       nav("/rep/banners");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(false); }
@@ -115,137 +59,74 @@ export default function CampaignBuilder() {
 
   return (
     <div>
-      <PageHeader eyebrow="Banner Campaigns" title="Build a new campaign"
-        description="Draw your reach on the world map or pick regions from the list. Override impressions per country when your client has different volume goals per market."
-        actions={<Link to="/rep/banners" className="text-sm text-[#52525B] hover:text-[#0A0A0A]" data-testid="back-campaigns">← All campaigns</Link>} />
-
+      <PageHeader
+        eyebrow="Banner Inventory · Commercial Proposal"
+        title="Submit a proposal"
+        description="Browse the network inventory, choose one product, and submit a confidential commercial proposal to Independent Media Network. Your customer relationship stays private — the platform never sees it."
+        actions={<Link to="/rep/banners" className="text-sm text-[#52525B] hover:text-[#0A0A0A]" data-testid="back-proposals">← All proposals</Link>}
+      />
       <div className="px-10 py-10 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: picker */}
-        <div className="lg:col-span-8 space-y-4">
-          <Tabs defaultValue="map">
-            <TabsList className="rounded-none border border-[#E4E4E1] bg-white p-0 h-auto" data-testid="picker-tabs">
-              <TabsTrigger value="map" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-map"><MapIcon size={12} className="mr-2" /> World map</TabsTrigger>
-              <TabsTrigger value="list" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-list"><List size={12} className="mr-2" /> Region list</TabsTrigger>
-            </TabsList>
-            <TabsContent value="map" className="mt-4">
-              <WorldMap inventoryCodes={inventoryCodes} selected={selected} onToggle={toggle} />
-              <div className="mt-3 flex justify-end gap-2">
-                <button data-testid="select-all" onClick={selectAll} className="px-3 py-1.5 text-xs uppercase tracking-widest border border-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white" style={{ transition: "background 160ms" }}>Select all</button>
-                <button data-testid="clear-all" onClick={clear} className="px-3 py-1.5 text-xs uppercase tracking-widest border border-[#E4E4E1] hover:border-[#0A0A0A]">Clear</button>
-              </div>
-            </TabsContent>
-            <TabsContent value="list" className="mt-4">
-              <div className="imh-card">
-                <div className="px-6 py-4 border-b border-[#E4E4E1] flex justify-between items-center">
-                  <div>
-                    <div className="imh-eyebrow">Targeting</div>
-                    <h3 className="font-editorial text-xl mt-1">Choose countries</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <button data-testid="select-all-list" onClick={selectAll} className="px-3 py-1.5 text-xs uppercase tracking-widest border border-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white">Select all</button>
-                    <button data-testid="clear-all-list" onClick={clear} className="px-3 py-1.5 text-xs uppercase tracking-widest border border-[#E4E4E1] hover:border-[#0A0A0A]">Clear</button>
-                  </div>
-                </div>
-                <div className="divide-y divide-[#E4E4E1]">
-                  {REGIONS.map(region => (
-                    <div key={region} className="px-6 py-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="font-editorial text-lg">{region}</div>
-                          <div className="text-xs text-[#52525B]">{grouped[region]?.length || 0} countries · Selected {(grouped[region] || []).filter(i => selected.has(i.country_code)).length}</div>
-                        </div>
-                        <button onClick={() => toggleRegion(region)} data-testid={`toggle-region-${region}`} className="text-xs uppercase tracking-widest text-[#0033A0] hover:text-[#002277]">Toggle region</button>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {(grouped[region] || []).map(c => {
-                          const isSel = selected.has(c.country_code);
-                          return (
-                            <button key={c.country_code} onClick={() => toggle(c.country_code)}
-                              data-testid={`country-${c.country_code}`}
-                              className={`flex items-center justify-between px-3 py-2 border text-sm ${isSel ? "bg-[#0033A0] text-white border-[#0033A0]" : "bg-white text-[#0A0A0A] border-[#E4E4E1] hover:border-[#0A0A0A]"}`}
-                              style={{ transition: "border-color 120ms, background-color 120ms" }}>
-                              <span className="truncate">{c.country_name}</span>
-                              <span className={`font-mono-imh text-[11px] ${isSel ? "text-white/80" : "text-[#52525B]"}`}>${c.price_cpm_usd}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {/* Per-country impressions override */}
-          {selected.size > 0 && (
-            <div className="imh-card" data-testid="per-country-panel">
-              <div className="px-6 py-4 border-b border-[#E4E4E1] flex items-center justify-between">
+        {/* Left: catalog */}
+        <div className="lg:col-span-8 space-y-6">
+          {grouped.map(g => (
+            <section key={g.network_key} className="imh-card overflow-hidden" data-testid={`network-${g.network_key}`}>
+              <div className="px-6 py-4 border-b border-[#E4E4E1] flex items-baseline justify-between">
                 <div>
-                  <div className="imh-eyebrow">Per-country volume</div>
-                  <h3 className="font-editorial text-xl mt-1">Override impressions where needed</h3>
+                  <div className="imh-eyebrow">{g.network_key.replace("_", " ").toUpperCase()}</div>
+                  <h3 className="font-editorial text-xl mt-1">{g.network_name}</h3>
+                  <p className="text-xs text-[#52525B] mt-1">{g.network_tagline}</p>
                 </div>
-                <div className="text-[11px] text-[#52525B] font-mono-imh">{selected.size} countries selected</div>
+                <span className="text-[11px] font-mono-imh text-[#52525B]">{g.items.length} products</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {perCountry.map(c => (
-                  <div key={c.country_code} className="p-4 border-b border-r border-[#E4E4E1] last:border-r-0 flex items-center gap-3" data-testid={`imp-row-${c.country_code}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono-imh text-[10px] text-[#A1A1AA]">{c.country_code}</div>
-                      <div className="text-sm truncate">{c.country_name}</div>
-                    </div>
-                    <div className="w-[110px]">
-                      <Input
-                        value={perCountryImp[c.country_code] ?? ""}
-                        placeholder={String(defaultImpressions)}
-                        onChange={(e) => setCountryImp(c.country_code, e.target.value)}
-                        type="number"
-                        data-testid={`imp-input-${c.country_code}`}
-                        className="rounded-none h-8 font-mono-imh text-right text-xs" />
-                    </div>
-                    <div className="w-[80px] text-right font-mono-imh text-xs text-[#0A0A0A]">
-                      {usd(c.internal_cost)}
-                    </div>
-                    <button onClick={() => toggle(c.country_code)} className="text-[#A1A1AA] hover:text-[#991B1B]" data-testid={`imp-remove-${c.country_code}`}>
-                      <X size={14} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+                {g.items.map(it => {
+                  const isSel = selectedInv?.id === it.id;
+                  return (
+                    <button key={it.id} onClick={() => setSelectedInv(it)}
+                      data-testid={`inv-${it.id}`}
+                      className={`text-left p-5 border-b border-r border-[#E4E4E1] last:border-r-0 ${isSel ? "bg-[#0A1128] text-white" : "bg-white hover:bg-[#F9F9F6]"}`}
+                      style={{ transition: "background 120ms" }}>
+                      <div className={`imh-eyebrow ${isSel ? "!text-[#B8C1DA]" : ""}`}>{it.position_key.replace("_", " ")}</div>
+                      <div className="font-editorial text-lg mt-1">{it.position_name}</div>
+                      <div className={`text-xs mt-2 ${isSel ? "text-[#B8C1DA]" : "text-[#52525B]"}`}>{it.position_description}</div>
                     </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
-          )}
+            </section>
+          ))}
         </div>
 
-        {/* Right: campaign form + summary */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="imh-card p-6">
-            <div className="imh-eyebrow">Campaign details</div>
-            <div className="mt-4 space-y-4">
-              <F label="Campaign name"><Input data-testid="campaign-name" value={campaignName} onChange={e => setCampaignName(e.target.value)} /></F>
-              <F label="Client name"><Input data-testid="campaign-client" value={clientName} onChange={e => setClientName(e.target.value)} /></F>
-              <div className="grid grid-cols-2 gap-3">
-                <F label="Start date"><Input data-testid="campaign-start" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></F>
-                <F label="End date"><Input data-testid="campaign-end" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></F>
+        {/* Right: proposal form */}
+        <div className="lg:col-span-4">
+          <div className="imh-card p-6 sticky top-6" data-testid="proposal-form">
+            <div className="imh-eyebrow">Commercial proposal</div>
+            {selectedInv ? (
+              <div className="mt-2 mb-4 border-l-2 border-[#0033A0] pl-3">
+                <div className="text-[11px] uppercase tracking-widest text-[#52525B]">{selectedInv.network_name}</div>
+                <div className="font-editorial text-xl">{selectedInv.position_name}</div>
               </div>
-              <F label="Default impressions / country"><Input data-testid="campaign-impressions" type="number" value={defaultImpressions} onChange={e => setDefaultImpressions(e.target.value)} /></F>
-              <F label="Client total price (USD)"><Input data-testid="campaign-price" type="number" value={clientPrice} onChange={e => setClientPrice(e.target.value)} /></F>
-              <F label="Notes"><Input data-testid="campaign-notes" value={notes} onChange={e => setNotes(e.target.value)} /></F>
-            </div>
-          </div>
+            ) : (
+              <div className="mt-2 mb-4 text-sm text-[#52525B] italic">Select an inventory product from the catalog on the left.</div>
+            )}
 
-          <div className="imh-card p-6" data-testid="campaign-summary">
-            <div className="imh-eyebrow">Commercial summary</div>
-            <dl className="mt-4 divide-y divide-[#E4E4E1]">
-              <Row label="Countries selected" value={<span className="font-mono-imh">{selected.size}</span>} />
-              <Row label="Total impressions" value={<span className="font-mono-imh">{Number(totalImpressions).toLocaleString()}</span>} />
-              <Row label="Your internal cost" value={<span className="font-mono-imh">{usd(totalInternal)}</span>} />
-              <Row label="Client price" value={<span className="font-mono-imh">{usd(priceNum)}</span>} />
-              <Row label="Your margin" value={<span className="font-mono-imh" style={{ color: margin >= 0 ? "#166534" : "#991B1B" }}>{usd(margin)} ({marginPct}%)</span>} />
-            </dl>
-            <Button onClick={submit} disabled={busy} data-testid="submit-campaign"
+            <div className="space-y-4">
+              <F label="Proposal name"><Input data-testid="proposal-name" value={form.proposal_name} onChange={e => setForm({ ...form, proposal_name: e.target.value })} /></F>
+              <F label="Client reference (private label)"><Input data-testid="proposal-client-ref" value={form.client_reference} onChange={e => setForm({ ...form, client_reference: e.target.value })} /></F>
+              <F label="Requested impressions (optional)"><Input data-testid="proposal-impressions" type="number" placeholder="Negotiable" value={form.impressions} onChange={e => setForm({ ...form, impressions: e.target.value })} /></F>
+              <div className="grid grid-cols-2 gap-3">
+                <F label="Start date"><Input data-testid="proposal-start" type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} /></F>
+                <F label="End date"><Input data-testid="proposal-end" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} /></F>
+              </div>
+              <F label="Your offer to Independent Media Network (USD)"><Input data-testid="proposal-offer" type="number" placeholder="Confidential" value={form.offer_amount_usd} onChange={e => setForm({ ...form, offer_amount_usd: e.target.value })} /></F>
+              <F label="Notes"><Textarea data-testid="proposal-notes" rows={3} className="rounded-none" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></F>
+            </div>
+
+            <Button onClick={submit} disabled={busy || !selectedInv} data-testid="submit-proposal"
               className="mt-6 w-full h-11 rounded-none bg-[#0033A0] hover:bg-[#002277] text-white">
-              {busy ? "Confirming…" : "Confirm campaign"} <ArrowRight size={16} className="ml-2" />
+              {busy ? "Submitting…" : "Submit for review"} <Send size={14} className="ml-2" />
             </Button>
+            <p className="mt-3 text-[11px] text-[#52525B]">Your proposal is confidential. Independent Media Network administrators will approve, reject, or request a revision.</p>
           </div>
         </div>
       </div>
@@ -253,5 +134,6 @@ export default function CampaignBuilder() {
   );
 }
 
-const F = ({ label, children }) => <div><Label className="text-[11px] uppercase tracking-widest text-[#52525B]">{label}</Label><div className="mt-2">{children}</div></div>;
-const Row = ({ label, value }) => <div className="flex items-center justify-between py-2.5 text-sm"><span className="text-[#52525B]">{label}</span><span>{value}</span></div>;
+const F = ({ label, children }) => (
+  <div><Label className="text-[11px] uppercase tracking-widest text-[#52525B]">{label}</Label><div className="mt-2">{children}</div></div>
+);

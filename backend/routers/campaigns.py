@@ -1,132 +1,154 @@
-"""Banner campaigns — create by rep, list by rep/admin. Includes flight dates."""
+"""Banner commercial proposals — negotiated offer workflow.
+
+Representatives submit a proposal for a standardized inventory product across the
+Independent Media Network. Administrators approve, reject or request revision.
+No fixed prices, no internal cost, no margin. The offer amount is what the rep
+proposes to pay Independent Media Network for the placement.
+"""
 import uuid
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from core import db, now_iso, ADMIN_ROLES
-from models import CampaignCreate
-from security import get_current_user, require_rep
+from models import BannerProposalCreate, ProposalDecisionBody
+from security import get_current_user, require_admin, require_rep
 from audit_helper import audit
-from notifications import notify_all_admins
+from notifications import notify, notify_all_admins
+from networks_data import all_inventory
 
-router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+router = APIRouter(prefix="/campaigns", tags=["banner-proposals"])
 
-
-def _parse_date(s: str) -> date:
-    """Parse YYYY-MM-DD or ISO datetime string to a date."""
-    return datetime.fromisoformat(s.replace("Z", "+00:00")).date() if "T" in s else datetime.strptime(s, "%Y-%m-%d").date()
+_INV_INDEX = {i["id"]: i for i in all_inventory()}
 
 
-def _campaign_status(start: str, end: str) -> str:
-    if not end:
-        return "confirmed"
+def _parse_date(s):
+    if not s:
+        return None
     try:
-        today = datetime.now(timezone.utc).date()
-        e = _parse_date(end)
-        s = _parse_date(start) if start else today
-        if today < s:
-            return "pending"
-        if today > e:
-            return "expired"
-        return "active"
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).date() if "T" in s else datetime.strptime(s, "%Y-%m-%d").date()
     except Exception:
-        return "confirmed"
+        return None
 
 
-def _decorate(c: dict) -> dict:
-    """Attach computed status + days_left. Never mutates DB."""
-    c.pop("_id", None)
-    c["computed_status"] = _campaign_status(c.get("start_date", ""), c.get("end_date", ""))
-    if c.get("end_date"):
-        try:
-            c["days_left"] = (_parse_date(c["end_date"]) - datetime.now(timezone.utc).date()).days
-        except Exception:
-            c["days_left"] = None
+def _decorate(p: dict) -> dict:
+    p.pop("_id", None)
+    end = _parse_date(p.get("end_date"))
+    start = _parse_date(p.get("start_date"))
+    if p.get("status") == "approved" and end:
+        today = datetime.now(timezone.utc).date()
+        if today > end:
+            p["lifecycle"] = "expired"
+        elif start and today < start:
+            p["lifecycle"] = "scheduled"
+        else:
+            p["lifecycle"] = "active"
+        p["days_left"] = (end - today).days
     else:
-        c["days_left"] = None
-    return c
+        p["lifecycle"] = None
+        p["days_left"] = None
+    return p
 
 
 @router.get("")
-async def list_campaigns(user: dict = Depends(get_current_user)):
+async def list_proposals(user: dict = Depends(get_current_user)):
     q = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
     items = await db.campaigns.find(q).sort("created_at", -1).to_list(500)
     return [_decorate(i) for i in items]
 
 
 @router.post("")
-async def create_campaign(body: CampaignCreate, user: dict = Depends(require_rep)):
+async def create_banner_proposal(body: BannerProposalCreate, user: dict = Depends(require_rep)):
     if user["role"] != "representative":
-        raise HTTPException(status_code=403, detail="Only representatives create campaigns")
+        raise HTTPException(status_code=403, detail="Only representatives submit commercial proposals")
 
-    # Validate flight dates
+    inv = _INV_INDEX.get(body.inventory_id)
+    if not inv:
+        raise HTTPException(status_code=400, detail="Unknown inventory item")
+
     start_date = body.start_date or datetime.now(timezone.utc).date().isoformat()
     end_date = body.end_date
     if end_date:
-        try:
-            sd = _parse_date(start_date)
-            ed = _parse_date(end_date)
-        except Exception:
+        sd = _parse_date(start_date); ed = _parse_date(end_date)
+        if not sd or not ed:
             raise HTTPException(status_code=400, detail="Invalid date format (use YYYY-MM-DD)")
         if ed < sd:
             raise HTTPException(status_code=400, detail="End date must be on or after start date")
 
-    inv = {i["country_code"]: i async for i in db.banner_inventory.find(
-        {"country_code": {"$in": [c.upper() for c in body.country_codes]}})}
-    if len(inv) != len(body.country_codes):
-        raise HTTPException(status_code=400, detail="One or more selected countries have no inventory")
+    if body.offer_amount_usd <= 0:
+        raise HTTPException(status_code=400, detail="Offer amount must be greater than zero")
 
-    per_country = []
-    total_internal = 0.0
-    total_impressions = 0
-    overrides = body.per_country_impressions or {}
-    for c in body.country_codes:
-        row = inv[c.upper()]
-        imp = int(overrides.get(c.upper(), body.impressions))
-        cost = round(row["price_cpm_usd"] * imp / 1000.0, 2)
-        per_country.append({
-            "country_code": c.upper(), "country_name": row["country_name"],
-            "price_cpm_usd": row["price_cpm_usd"], "impressions": imp,
-            "internal_cost": cost,
-        })
-        total_internal += cost
-        total_impressions += imp
-
-    campaign = {
-        "id": str(uuid.uuid4()), "rep_id": user["id"], "rep_name": user["name"],
+    proposal = {
+        "id": str(uuid.uuid4()),
+        "kind": "banner",
+        "rep_id": user["id"], "rep_name": user["name"],
         "agency_name": user.get("agency_name", ""),
-        "campaign_name": body.campaign_name, "client_name": body.client_name,
-        "country_codes": [c.upper() for c in body.country_codes],
-        "per_country": per_country,
+        "campaign_name": body.proposal_name,
+        "client_reference": body.client_reference,
+        "inventory_id": body.inventory_id,
+        "network_key": inv["network_key"], "network_name": inv["network_name"],
+        "position_key": inv["position_key"], "position_name": inv["position_name"],
         "impressions": body.impressions,
-        "total_impressions": total_impressions,
-        "internal_cost_usd": round(total_internal, 2),
-        "client_total_price_usd": body.client_total_price,
-        "margin_usd": round(body.client_total_price - total_internal, 2),
-        "start_date": start_date,
-        "end_date": end_date or "",
-        "notes": body.notes, "status": "confirmed",
+        "start_date": start_date, "end_date": end_date or "",
+        "offer_amount_usd": float(body.offer_amount_usd),
+        "notes": body.notes,
+        "status": "pending_review",
+        "admin_notes": "", "decided_at": "",
         "created_at": now_iso(),
     }
-    await db.campaigns.insert_one(campaign)
+    await db.campaigns.insert_one(proposal)
 
-    await audit(user, "campaign.create", "campaign", campaign["id"], {
-        "campaign_name": campaign["campaign_name"], "client_name": campaign["client_name"],
-        "countries": len(campaign["country_codes"]),
-        "internal_cost_usd": campaign["internal_cost_usd"],
-        "client_total_price_usd": campaign["client_total_price_usd"],
-        "start_date": start_date, "end_date": end_date or "",
+    await audit(user, "proposal.banner.submitted", "campaign", proposal["id"], {
+        "network": inv["network_name"], "position": inv["position_name"],
+        "offer_amount_usd": proposal["offer_amount_usd"],
     })
-
-    date_note = f" · Flights {start_date} → {end_date}" if end_date else ""
     await notify_all_admins(
-        event_type="campaign.created",
-        title=f"New banner campaign booked · {campaign['campaign_name']}",
-        message=(f"{user.get('agency_name', user['name'])} booked a {len(campaign['country_codes'])}-country campaign "
-                 f"for {campaign['client_name']} at ${int(campaign['client_total_price_usd']):,} client price.{date_note}"),
-        entity_type="campaign", entity_id=campaign["id"],
-        link="/admin/reports",
-        severity="info",
+        event_type="banner_proposal.submitted",
+        title=f"New banner proposal · {proposal['campaign_name']}",
+        message=(f"{user.get('agency_name', user['name'])} submitted a proposal for "
+                 f"{inv['network_name']} · {inv['position_name']} at ${int(proposal['offer_amount_usd']):,}. "
+                 "Review and approve, reject or request a revision."),
+        entity_type="campaign", entity_id=proposal["id"],
+        link="/admin/proposals-review",
+        severity="action_required",
     )
 
-    return _decorate(campaign)
+    return _decorate(proposal)
+
+
+DECISION_MAP = {
+    "approved":            {"title": "Your banner proposal was approved",       "severity": "info"},
+    "rejected":            {"title": "Your banner proposal was not approved",   "severity": "info"},
+    "revision_requested":  {"title": "Your banner proposal needs revision",     "severity": "action_required"},
+}
+
+
+@router.patch("/{proposal_id}/decision")
+async def decide_banner_proposal(proposal_id: str, body: ProposalDecisionBody,
+                                  admin: dict = Depends(require_admin)):
+    if body.decision not in DECISION_MAP:
+        raise HTTPException(status_code=400, detail="Invalid decision")
+    doc = await db.campaigns.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if doc.get("status") == body.decision:
+        return _decorate(doc)
+
+    await db.campaigns.update_one({"id": proposal_id},
+                                   {"$set": {"status": body.decision,
+                                              "admin_notes": body.admin_notes or "",
+                                              "decided_at": now_iso()}})
+    await audit(admin, f"proposal.banner.{body.decision}", "campaign", proposal_id,
+                {"admin_notes": body.admin_notes or ""})
+
+    meta = DECISION_MAP[body.decision]
+    note = f" · Note: {body.admin_notes}" if body.admin_notes else ""
+    await notify([doc["rep_id"]],
+                 event_type=f"banner_proposal.{body.decision}",
+                 title=f"{meta['title']} · {doc['campaign_name']}",
+                 message=f"{meta['title']}.{note}",
+                 entity_type="campaign", entity_id=proposal_id,
+                 link="/rep/banners",
+                 severity=meta["severity"])
+
+    updated = await db.campaigns.find_one({"id": proposal_id})
+    return _decorate(updated)

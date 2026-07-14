@@ -55,9 +55,10 @@ export default function AppShell({ role }) {
               <Item to={notifBase} icon={Bell} testId="nav-admin-notifications">Notifications</Item>
             </Section>
             <Section label="Commercial">
-              <Item to={`${base}/banner-inventory`} icon={Globe2} testId="nav-admin-inventory">Banner Inventory</Item>
+              <Item to={`${base}/inventory`} icon={Globe2} testId="nav-admin-inventory">Inventory Catalog</Item>
+              <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Proposals Review</Item>
               <Item to={`${base}/tv-projects`} icon={FilmIcon} testId="nav-admin-tv">TV Projects</Item>
-              <Item to={`${base}/proposals`} icon={Sparkles} testId="nav-admin-proposals">Project Proposals</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Editorial Proposals</Item>
             </Section>
             <Section label="Network">
               <Item to={`${base}/representatives`} icon={Users} testId="nav-admin-reps">Representatives</Item>
@@ -73,11 +74,11 @@ export default function AppShell({ role }) {
               <Item to={notifBase} icon={Bell} testId="nav-rep-notifications">Notifications</Item>
             </Section>
             <Section label="Sell">
-              <Item to={`${base}/banners`} icon={Radio} testId="nav-rep-campaigns">Banner Campaigns</Item>
+              <Item to={`${base}/banners`} icon={Radio} testId="nav-rep-campaigns">Banner Proposals</Item>
               <Item to={`${base}/tv`} icon={FilmIcon} testId="nav-rep-tv">TV Sponsorships</Item>
             </Section>
             <Section label="Grow">
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Project Proposals</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Editorial Proposals</Item>
               <Item to={`${base}/reports`} icon={BarChart3} testId="nav-rep-reports">Reports</Item>
             </Section>
           </>

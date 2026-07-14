@@ -1,5 +1,5 @@
 """Pydantic models used across Independent Media Hub routers."""
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
 
@@ -34,26 +34,34 @@ class RepresentativeUpdate(BaseModel):
     password: Optional[str] = None
 
 
-class BannerInventoryItem(BaseModel):
-    country_code: str
-    country_name: str
-    region: str
-    price_cpm_usd: float
-    min_impressions: int = 10000
-
-
-class CampaignCreate(BaseModel):
-    campaign_name: str
-    client_name: str
-    country_codes: List[str]
-    impressions: int
-    per_country_impressions: Optional[Dict[str, int]] = None
-    client_total_price: float
-    start_date: Optional[str] = None  # ISO date (YYYY-MM-DD)
-    end_date: Optional[str] = None    # ISO date (YYYY-MM-DD)
+# ---- Commercial proposal for banner inventory ----
+class BannerProposalCreate(BaseModel):
+    proposal_name: str
+    client_reference: str          # rep's internal label (never disclosed to admin as identity)
+    inventory_id: str              # "{network_key}__{position_key}"
+    impressions: Optional[int] = None  # optional — subject to negotiation
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    offer_amount_usd: float        # what the rep offers to pay IMN for the placement
     notes: Optional[str] = ""
 
 
+# ---- Commercial proposal for TV sponsorship ----
+class TVProposalCreate(BaseModel):
+    proposal_name: str
+    client_reference: str
+    tv_project_id: str
+    episode_numbers: List[int]
+    offer_amount_usd: float
+    notes: Optional[str] = ""
+
+
+class ProposalDecisionBody(BaseModel):
+    decision: str  # approved | rejected | revision_requested
+    admin_notes: Optional[str] = ""
+
+
+# ---- TV projects (editorial + inventory only, NO fixed price) ----
 class TVProjectCreate(BaseModel):
     title: str
     tagline: Optional[str] = ""
@@ -64,7 +72,6 @@ class TVProjectCreate(BaseModel):
     distribution: Optional[str] = ""
     languages: List[str] = []
     total_episodes: int
-    price_per_episode_usd: float
     sponsorship_rights: Optional[str] = ""
     status: str = "active"  # active | draft | closed
 
@@ -79,7 +86,6 @@ class TVProjectUpdate(BaseModel):
     distribution: Optional[str] = None
     languages: Optional[List[str]] = None
     total_episodes: Optional[int] = None
-    price_per_episode_usd: Optional[float] = None
     sponsorship_rights: Optional[str] = None
     status: Optional[str] = None
 
@@ -88,17 +94,10 @@ class TVProjectStatusUpdate(BaseModel):
     status: str  # active | draft | closed
 
 
-class SponsorshipCreate(BaseModel):
-    tv_project_id: str
-    client_name: str
-    episode_numbers: List[int]
-    client_total_price: float
-    notes: Optional[str] = ""
-
-
+# ---- Editorial TV proposal (concept pitching) — unchanged from before ----
 class ProposalCreate(BaseModel):
     title: str
-    format: str  # documentary | interview_series | travel | investigation | other
+    format: str
     country: str
     description: str
     estimated_episodes: int
@@ -106,7 +105,7 @@ class ProposalCreate(BaseModel):
 
 
 class ProposalDecision(BaseModel):
-    status: str  # approved | rejected | in_review
+    status: str
     admin_notes: Optional[str] = ""
 
 

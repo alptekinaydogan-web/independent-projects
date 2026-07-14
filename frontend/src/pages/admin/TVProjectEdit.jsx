@@ -22,7 +22,7 @@ export default function TVProjectEdit() {
   const save = async () => {
     try {
       const payload = { ...p, languages: p.languages.split(",").map(s => s.trim()).filter(Boolean),
-        total_episodes: Number(p.total_episodes), price_per_episode_usd: Number(p.price_per_episode_usd) };
+        total_episodes: Number(p.total_episodes) };
       delete payload.sponsored_episodes;
       await api.patch(`/admin/tv-projects/${id}`, payload);
       toast.success("TV project updated");
@@ -54,7 +54,6 @@ export default function TVProjectEdit() {
         <F label="Distribution"><Input value={p.distribution || ""} onChange={e => setP({ ...p, distribution: e.target.value })} /></F>
         <F label="Languages (comma-separated)" full><Input value={p.languages} onChange={e => setP({ ...p, languages: e.target.value })} /></F>
         <F label="Total episodes"><Input type="number" value={p.total_episodes} onChange={e => setP({ ...p, total_episodes: e.target.value })} /></F>
-        <F label="Internal price / episode (USD)"><Input type="number" value={p.price_per_episode_usd} onChange={e => setP({ ...p, price_per_episode_usd: e.target.value })} /></F>
         <F label="Sponsorship rights" full><Textarea rows={3} className="rounded-none" value={p.sponsorship_rights || ""} onChange={e => setP({ ...p, sponsorship_rights: e.target.value })} /></F>
         <div className="col-span-2 imh-card p-5">
           <div className="imh-eyebrow">Sponsored episodes</div>
@@ -68,7 +67,7 @@ export default function TVProjectEdit() {
             ))}
           </div>
           <div className="mt-4 text-xs text-[#52525B]">
-            Available slots · <span className="font-mono-imh text-[#0A0A0A]">{Math.max(0, p.total_episodes - (p.sponsored_episodes?.length || 0))} / {p.total_episodes}</span> · Internal potential {usd((p.total_episodes - (p.sponsored_episodes?.length || 0)) * p.price_per_episode_usd)}
+            Available slots · <span className="font-mono-imh text-[#0A0A0A]">{Math.max(0, p.total_episodes - (p.sponsored_episodes?.length || 0))} / {p.total_episodes}</span>
           </div>
         </div>
       </div>

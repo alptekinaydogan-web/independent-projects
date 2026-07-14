@@ -1,61 +1,87 @@
-"""Reports overview: scoped for admin/owner vs representative."""
+"""Operational reports — proposal counts + activity. NO revenue, margin or profit."""
 from collections import defaultdict
 from fastapi import APIRouter, Depends
 
 from core import db, ADMIN_ROLES
 from security import get_current_user
+from networks_data import all_inventory
 
 router = APIRouter(tags=["reports"])
-
-
-def _sum_field(items, key):
-    return round(sum(float(i.get(key, 0) or 0) for i in items), 2)
 
 
 @router.get("/reports/overview")
 async def reports_overview(user: dict = Depends(get_current_user)):
     is_admin = user["role"] in ADMIN_ROLES
     scope = {} if is_admin else {"rep_id": user["id"]}
-    campaigns = await db.campaigns.find(scope).to_list(1000)
-    sponsorships = await db.sponsorships.find(scope).to_list(1000)
 
-    country_totals: dict = {}
-    for c in campaigns:
-        for pc in c.get("per_country", []):
-            country_totals.setdefault(pc["country_name"], 0)
-            country_totals[pc["country_name"]] += pc.get("internal_cost", 0)
-    top_countries = sorted(country_totals.items(), key=lambda x: -x[1])[:10]
+    banner_by_status = defaultdict(int)
+    async for c in db.campaigns.find(scope):
+        banner_by_status[c.get("status", "pending_review")] += 1
 
-    monthly = defaultdict(lambda: {"campaigns_usd": 0.0, "tv_usd": 0.0})
-    for c in campaigns:
+    tv_by_status = defaultdict(int)
+    async for s in db.sponsorships.find(scope):
+        tv_by_status[s.get("status", "pending_review")] += 1
+
+    # Editorial proposals (concept pitches) — unchanged, count only
+    editorial_by_status = defaultdict(int)
+    async for p in db.proposals.find(scope):
+        editorial_by_status[p.get("status", "in_review")] += 1
+
+    monthly = defaultdict(lambda: {"banner_submitted": 0, "tv_submitted": 0,
+                                    "banner_approved": 0, "tv_approved": 0})
+    async for c in db.campaigns.find(scope):
         m = (c.get("created_at") or "")[:7]
-        monthly[m]["campaigns_usd"] += c.get("client_total_price_usd", 0)
-    for s in sponsorships:
+        monthly[m]["banner_submitted"] += 1
+        if c.get("status") == "approved":
+            monthly[m]["banner_approved"] += 1
+    async for s in db.sponsorships.find(scope):
         m = (s.get("created_at") or "")[:7]
-        monthly[m]["tv_usd"] += s.get("client_total_price_usd", 0)
+        monthly[m]["tv_submitted"] += 1
+        if s.get("status") == "approved":
+            monthly[m]["tv_approved"] += 1
     monthly_series = sorted(
-        [{"month": k, "campaigns_usd": round(v["campaigns_usd"], 2),
-          "tv_usd": round(v["tv_usd"], 2)} for k, v in monthly.items()],
+        [{"month": k, **v} for k, v in monthly.items()],
         key=lambda x: x["month"])[-6:]
 
-    total_reps = 0
-    proposals_pending = 0
-    if is_admin:
-        total_reps = await db.users.count_documents({"role": "representative", "is_active": True})
-        proposals_pending = await db.proposals.count_documents({"status": "in_review"})
+    # Approved-per-network activity (banner)
+    network_activity = defaultdict(int)
+    async for c in db.campaigns.find({**scope, "status": "approved"}):
+        network_activity[c.get("network_name") or "—"] += 1
+    top_networks = sorted(network_activity.items(), key=lambda x: -x[1])[:8]
 
-    return {
+    payload = {
         "role": user["role"],
-        "campaign_count": len(campaigns),
-        "sponsorship_count": len(sponsorships),
-        "campaigns_client_revenue_usd": _sum_field(campaigns, "client_total_price_usd"),
-        "campaigns_internal_cost_usd": _sum_field(campaigns, "internal_cost_usd"),
-        "campaigns_margin_usd": _sum_field(campaigns, "margin_usd"),
-        "tv_client_revenue_usd": _sum_field(sponsorships, "client_total_price_usd"),
-        "tv_internal_cost_usd": _sum_field(sponsorships, "internal_cost_usd"),
-        "tv_margin_usd": _sum_field(sponsorships, "margin_usd"),
-        "top_countries": [{"country": k, "internal_usd": round(v, 2)} for k, v in top_countries],
+        "banner_proposals": {
+            "pending_review": banner_by_status.get("pending_review", 0),
+            "approved": banner_by_status.get("approved", 0),
+            "rejected": banner_by_status.get("rejected", 0),
+            "revision_requested": banner_by_status.get("revision_requested", 0),
+            "total": sum(banner_by_status.values()),
+        },
+        "tv_proposals": {
+            "pending_review": tv_by_status.get("pending_review", 0),
+            "approved": tv_by_status.get("approved", 0),
+            "rejected": tv_by_status.get("rejected", 0),
+            "revision_requested": tv_by_status.get("revision_requested", 0),
+            "total": sum(tv_by_status.values()),
+        },
+        "editorial_proposals": {
+            "in_review": editorial_by_status.get("in_review", 0),
+            "approved": editorial_by_status.get("approved", 0),
+            "rejected": editorial_by_status.get("rejected", 0),
+            "total": sum(editorial_by_status.values()),
+        },
         "monthly_series": monthly_series,
-        "total_reps_active": total_reps,
-        "proposals_pending": proposals_pending,
+        "top_networks": [{"network": k, "approved": v} for k, v in top_networks],
+        "inventory_products_count": len(all_inventory()),
     }
+
+    if is_admin:
+        payload["total_reps_active"] = await db.users.count_documents(
+            {"role": "representative", "is_active": True})
+        payload["all_pending_review"] = (
+            payload["banner_proposals"]["pending_review"]
+            + payload["tv_proposals"]["pending_review"]
+        )
+
+    return payload

@@ -1,48 +1,71 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
-import { usd, num } from "@/lib/constants";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 export default function RepReports() {
   const [d, setD] = useState(null);
   useEffect(() => { api.get("/reports/overview").then(r => setD(r.data)); }, []);
+  const bp = d?.banner_proposals || {}; const tp = d?.tv_proposals || {};
   return (
     <div>
-      <PageHeader eyebrow="Analytics" title="Your reports" description="A commercial pulse of your activity on Independent Media Hub." />
+      <PageHeader eyebrow="Analytics" title="Commercial activity" description="Operational overview of your proposals across the Independent Media Network. No revenue metrics — customer commercials remain confidential." />
       <div className="px-10 py-10 space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Metric label="Banner revenue" value={d ? usd(d.campaigns_client_revenue_usd) : "—"} sub={`${num(d?.campaign_count || 0)} campaigns`} />
-          <Metric label="Banner margin" value={d ? usd(d.campaigns_margin_usd) : "—"} sub="Client price − internal" />
-          <Metric label="TV revenue" value={d ? usd(d.tv_client_revenue_usd) : "—"} sub={`${num(d?.sponsorship_count || 0)} sponsorships`} />
-          <Metric label="TV margin" value={d ? usd(d.tv_margin_usd) : "—"} sub="Client price − internal" />
+          <Metric label="Banner · Total submitted" value={bp.total ?? "—"} />
+          <Metric label="Banner · Approved" value={bp.approved ?? "—"} sub={`${bp.pending_review ?? 0} pending`} />
+          <Metric label="TV · Total submitted" value={tp.total ?? "—"} />
+          <Metric label="TV · Approved" value={tp.approved ?? "—"} sub={`${tp.pending_review ?? 0} pending`} />
         </div>
+
         <div className="imh-card p-6">
-          <div className="imh-eyebrow">Monthly performance</div>
+          <div className="imh-eyebrow">Monthly activity</div>
           <div className="h-[320px] mt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={d?.monthly_series || []}>
+              <BarChart data={d?.monthly_series || []}>
                 <CartesianGrid stroke="#E4E4E1" vertical={false} />
                 <XAxis dataKey="month" stroke="#52525B" fontSize={11} axisLine={{ stroke: "#E4E4E1" }} tickLine={false} />
                 <YAxis stroke="#52525B" fontSize={11} axisLine={{ stroke: "#E4E4E1" }} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: 0, borderColor: "#0A0A0A" }} />
                 <Legend />
-                <Line dataKey="campaigns_usd" name="Banners" stroke="#0033A0" strokeWidth={2} />
-                <Line dataKey="tv_usd" name="TV" stroke="#0A0A0A" strokeWidth={2} />
-              </LineChart>
+                <Bar dataKey="banner_submitted" name="Banner submitted" fill="#0033A0" />
+                <Bar dataKey="banner_approved"  name="Banner approved"  fill="#166534" />
+                <Bar dataKey="tv_submitted"     name="TV submitted"     fill="#0A0A0A" />
+                <Bar dataKey="tv_approved"      name="TV approved"      fill="#B45309" />
+              </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="imh-card">
+          <div className="px-6 py-4 border-b border-[#E4E4E1]">
+            <div className="imh-eyebrow">Approved network activity</div>
+            <h3 className="font-editorial text-xl mt-1">Where your approved proposals ran</h3>
+          </div>
+          <div className="divide-y divide-[#E4E4E1]">
+            {(d?.top_networks || []).map((n, i) => (
+              <div key={n.network} className="px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono-imh text-xs text-[#A1A1AA] w-6">{String(i+1).padStart(2, "0")}</span>
+                  <span className="text-sm">{n.network}</span>
+                </div>
+                <span className="font-mono-imh text-sm">{n.approved} approved</span>
+              </div>
+            ))}
+            {(!d?.top_networks || d.top_networks.length === 0) && <div className="px-6 py-10 text-center text-[#52525B]">No approved network activity yet.</div>}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 function Metric({ label, value, sub }) {
   return (
     <div className="imh-card p-6">
       <div className="imh-eyebrow">{label}</div>
       <div className="imh-metric-number text-3xl mt-3">{value}</div>
-      <div className="mt-2 text-xs text-[#52525B]">{sub}</div>
+      {sub && <div className="mt-2 text-xs text-[#52525B]">{sub}</div>}
     </div>
   );
 }

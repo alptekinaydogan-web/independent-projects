@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 6 (negotiated-offer commercial proposal pivot) fully verified. Backend: 14/14 pytest cases PASS across inventory catalog, banner proposal lifecycle, TV sponsorship lifecycle (with pending-competes-approved-blocks semantics), reports overview shape, and rep-to-rep isolation. Frontend verified end-to-end on both rep and owner consoles: /rep/banners/new catalog + proposal form + submit, /rep/banners proposals-table with 4-status badges, /admin/inventory read-only catalog (9 networks / 10 positions / 90 items / 'Proposal-based'), /admin/proposals-review with Banner/TV tabs and Approve/Revise/Reject actions on pending items, operational-only dashboards. NO revenue/margin/price fields observed in any response payload or UI surface. Rep isolation confirmed for both /api/campaigns and /api/sponsorships.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/iteration6.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/countries is still registered in server.py but is not referenced by campaigns/sponsorships flows. Per review request this is 'kept but irrelevant' — non-blocking, but recommend removing the router in a future cleanup pass to keep the surface area small.",
+    "Inventory catalog is served from a static Python module (networks_data.py) with an in-memory index built once at router import. No DB round-trip. Deterministic ids {network_key}__{position_key} verified.",
+    "Banner proposal decision endpoint is idempotent: same-status re-decision returns 200 with current doc without side effects (no duplicate notification). Confirmed via test_submit_and_approve_flow.",
+    "TV sponsorship approval correctly enforces episode-uniqueness only against ALREADY approved records — two pending proposals may compete for the same episode; second approval returns 409. Verified in test_pending_can_compete_but_approved_blocks.",
+    "Rep isolation: list_proposals/list_sponsorships apply {rep_id: user.id} for non-admin roles. Verified rep2 cannot see rep1's proposals for both banner (/api/campaigns) and TV (/api/sponsorships).",
+    "Reports overview correctly omits ALL forbidden revenue fields (internal_cost_usd, client_total_price_usd, margin_usd, campaigns_client_revenue_usd, tv_client_revenue_usd, campaigns_margin_usd, tv_margin_usd, top_countries) — verified via set-subtraction test. Admin-extra fields (total_reps_active, all_pending_review) present only for admin.",
+    "TV project response has no price_per_episode_usd; sponsored_episodes contains only approved sponsorship episodes; pending_review_count is exposed for admin visibility."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration6.py (new)"
+  ],
+  "success_rate": { "backend": "100% (14/14 pytest)", "frontend": "100% — rep catalog+form+submit, proposals-table with 4-status badges, admin inventory (9/10/90), proposals-review Banner/TV tabs with Approve/Revise/Reject, operational-only dashboards" },
+  "test_credentials": "Owner: admin@independentmedia.hub / Admin2026! ; Reps: victor.laurent@parismedia.fr / Rep2026! ; amelia.hart@londonhouse.co.uk / Rep2026!",
+  "seed_data_creation": "Several TEST_-prefixed banner proposals and sponsorships were created during automated tests (TEST_banner_*, TEST_rev_*, TEST_iso_*, TEST_sp_*, TEST_UI_*, TEST_iso_sp). Also a TEST_TV_* project was created and DELETED at teardown. Non-deletable proposals remain in DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iteration_6 pytest suite at /app/backend/tests/test_iteration6.py covers: TestInventoryCatalog (shape 9/10/90 + no revenue fields), TestBannerProposal (approve flow + unknown inv 400 + zero offer 400 + bad-date 400 + revision_requested + rep isolation), TestSponsorshipProposal (no price_per_episode field, submit+approve, pending-competes-approved-blocks-409, zero offer 400, rep isolation), TestReportsOverview (admin shape includes total_reps_active/all_pending_review + inventory_products_count=90; rep shape has neither; both free of all 8 forbidden revenue fields). Playwright verified rep flow submits new proposal end-to-end via /rep/banners/new (data-testid=inv-{net}__{pos}, proposal-form, submit-proposal disabled until selection), verified proposal-status-{id} badges render 4 statuses, verified admin /admin/inventory shows inv-metric-* (4)/inv-network-* (9)/inv-item-* (90) and /admin/proposals-review renders decide-approve/revise/reject-{id} with note textarea. Both dashboards free of revenue words. Login uses access_token key (not token) — reused in test fixture.",
+  "rca of the issue": "N/A — no defects found. All iteration 6 scope verified."
+}

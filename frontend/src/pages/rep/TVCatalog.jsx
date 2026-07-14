@@ -30,8 +30,8 @@ export default function TVCatalog() {
                   <p className="text-[15px] text-[#52525B] mt-3 line-clamp-2 leading-relaxed">{p.tagline}</p>
                   <div className="mt-6 grid grid-cols-3 gap-4 border-t border-[#E4E4E1] pt-5">
                     <Stat label="Episodes" value={p.total_episodes} />
-                    <Stat label="Internal / EP" value={usd(p.price_per_episode_usd)} />
                     <Stat label="Sponsored" value={`${pct}%`} />
+                    <Stat label="Model" value="Proposal" />
                   </div>
                 </div>
               </Link>
