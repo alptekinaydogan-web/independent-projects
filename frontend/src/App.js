@@ -16,6 +16,7 @@ import Proposals from "@/pages/admin/Proposals";
 import AdminReports from "@/pages/admin/Reports";
 import AuditLog from "@/pages/admin/AuditLog";
 import Admins from "@/pages/admin/Admins";
+import Notifications from "@/pages/Notifications";
 
 import RepDashboard from "@/pages/rep/Dashboard";
 import CampaignBuilder from "@/pages/rep/CampaignBuilder";
@@ -44,6 +45,7 @@ function App() {
               <Route path="/admin/proposals" element={<Proposals />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/audit-log" element={<AuditLog />} />
+              <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/admins" element={<OwnerOnly><Admins /></OwnerOnly>} />
             </Route>
 
@@ -56,6 +58,7 @@ function App() {
               <Route path="/rep/sponsorships" element={<Sponsorships />} />
               <Route path="/rep/proposals" element={<SubmitProposal />} />
               <Route path="/rep/proposals/new" element={<SubmitProposal />} />
+              <Route path="/rep/notifications" element={<Notifications />} />
               <Route path="/rep/reports" element={<RepReports />} />
             </Route>
 

@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles, ShieldCheck, ScrollText } from "lucide-react";
+import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles, ShieldCheck, ScrollText, Bell } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 function Section({ label, children }) {
   return (
@@ -28,25 +29,30 @@ export default function AppShell({ role }) {
   const isAdmin = role === "admin";
   const isOwner = user?.role === "owner";
   const base = isAdmin ? "/admin" : "/rep";
+  const notifBase = isAdmin ? "/admin/notifications" : "/rep/notifications";
 
   return (
     <div className="min-h-screen flex bg-[#F9F9F6]">
-      <aside className="w-[260px] shrink-0 text-white imh-grain relative" style={{ background: "#0A1128" }}>
-        <div className="px-6 pt-8 pb-6 border-b border-[#1E293B]">
-          <div className="flex items-center gap-2">
-            <span className="imh-dot" style={{ background: "#fff" }} />
-            <span className="imh-eyebrow" style={{ color: "#93A0C2" }}>Independent</span>
+      <aside className="w-[260px] shrink-0 text-white imh-grain relative flex flex-col" style={{ background: "#0A1128" }}>
+        <div className="px-6 pt-8 pb-6 border-b border-[#1E293B] flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="imh-dot" style={{ background: "#fff" }} />
+              <span className="imh-eyebrow" style={{ color: "#93A0C2" }}>Independent</span>
+            </div>
+            <h1 className="font-editorial text-2xl leading-tight mt-1">Media Hub</h1>
+            <p className="text-[11px] mt-1" style={{ color: "#93A0C2", letterSpacing: "0.06em" }}>
+              {isAdmin ? (isOwner ? "OWNER CONSOLE" : "ADMINISTRATOR CONSOLE") : "REPRESENTATIVE CONSOLE"}
+            </p>
           </div>
-          <h1 className="font-editorial text-2xl leading-tight mt-1">Media Hub</h1>
-          <p className="text-[11px] mt-1" style={{ color: "#93A0C2", letterSpacing: "0.06em" }}>
-            {isAdmin ? (isOwner ? "OWNER CONSOLE" : "ADMINISTRATOR CONSOLE") : "REPRESENTATIVE CONSOLE"}
-          </p>
+          <NotificationBell notificationsBase={notifBase} />
         </div>
 
         {isAdmin ? (
           <>
             <Section label="Overview">
               <Item to={`${base}`} icon={LayoutGrid} testId="nav-admin-dashboard">Dashboard</Item>
+              <Item to={notifBase} icon={Bell} testId="nav-admin-notifications">Notifications</Item>
             </Section>
             <Section label="Commercial">
               <Item to={`${base}/banner-inventory`} icon={Globe2} testId="nav-admin-inventory">Banner Inventory</Item>
@@ -64,6 +70,7 @@ export default function AppShell({ role }) {
           <>
             <Section label="Overview">
               <Item to={`${base}`} icon={LayoutGrid} testId="nav-rep-dashboard">Dashboard</Item>
+              <Item to={notifBase} icon={Bell} testId="nav-rep-notifications">Notifications</Item>
             </Section>
             <Section label="Sell">
               <Item to={`${base}/banners`} icon={Radio} testId="nav-rep-campaigns">Banner Campaigns</Item>
@@ -76,7 +83,7 @@ export default function AppShell({ role }) {
           </>
         )}
 
-        <div className="mt-10 px-6 py-6 border-t border-[#1E293B]">
+        <div className="mt-auto px-6 py-6 border-t border-[#1E293B]">
           <div className="text-[11px] tracking-widest uppercase" style={{ color: "#93A0C2" }}>Signed in</div>
           <div className="mt-1 text-sm font-medium flex items-center gap-2">
             {user?.name}
