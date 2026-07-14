@@ -25,16 +25,16 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Proposals reviewed by admin only.
 
 ## What's Implemented (Feb 2026)
-- **Modular backend architecture**: server.py is now a ~60-line orchestrator. Domain logic lives in `/app/backend/core.py` + `security.py` + `models.py` + `audit_helper.py` + `email_service.py` + `storage.py` + `notifications.py` + `countries_data.py` + `seed.py` + 11 focused routers under `/app/backend/routers/`.
-- **Notification Center** — role-aware, non-noisy. Wired into: proposal submitted / approved / rejected / in-review, campaign booked, sponsorship confirmed, TV project launched / reopened / closed, and administrator actions affecting a rep (suspend, reactivate, admin-triggered password reset). Endpoints: `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/{id}/read`, `POST /api/notifications/mark-all-read`. Frontend: bell + unread badge + dropdown panel in the sidebar, plus dedicated `/admin/notifications` and `/rep/notifications` pages with all/unread filters.
-- **Auth**: login, /me, logout, forgot/reset password. Bcrypt, JWT, httpOnly cookies + Bearer fallback. Reset flow is tz-aware and invalidates all outstanding tokens on success.
-- **Resend email** (`/app/backend/email_service.py`) — 100% env-var driven: `RESEND_API_KEY` + `RESEND_FROM_EMAIL`. Empty key → logs the reset link locally. Set a production key + verified sender at deploy time, no code changes required.
-- **Multi-role admins**: `owner` + `admin` + `representative`. Owner-only endpoints under `/api/owner/admins`.
-- **Audit log** at `GET /api/admin/audit-log` — every state-changing action recorded.
-- **Admin console**: dashboard w/ metrics + revenue chart + top countries; Representatives CRUD w/ suspend + password reset; Banner Inventory (48 countries × 7 regions) CPM editor; TV Projects list with status filter + per-card status dropdown (active/draft/closed); Proposals review; Global Reports; **Audit Log**; **Administrators** (owner-only); **Notifications**.
-- **Rep console**: dashboard; **cinematic 2D world map** + region list + per-country impressions override in campaign builder; Campaigns list; TV Sponsorship Catalog + editorial project pages; Sponsorships list; TV proposal submission; Reports; **Notifications**.
-- **TV Project status**: draft/active/closed. Reps only see active projects. New sponsorships blocked on non-active projects.
-- **Seed data**: 1 owner + 2 sample reps + 48 countries with regional CPM + 3 sample TV projects.
+- **Commercial model = negotiated commercial proposals**. There are no fixed prices, no internal costs, no representative revenue, no margin, no client price anywhere in the platform. Representatives negotiate with their customers OFF-platform, then submit a confidential commercial proposal to Independent Media Network. Administrators approve / reject / request revision. Proposals are private per representative — reps never see each other's offers.
+- **Inventory = network × position catalog**. 9 networks (Global + Tourism, Health, Real Estate, Education, Economy, Sports, Technology, Entertainment) × 10 standardized positions (Hero, Header, Sidebar Top/Bottom, Article Top/Middle/Bottom, Footer, Mobile, Sticky) = 90 products. Each product spans the entire network automatically; adding country sites does not require any UI change.
+- **Two commercial modules, both proposal-based**: Banner Proposals and TV Sponsorship Proposals. Each has `pending_review → approved / rejected / revision_requested` lifecycle with admin decision endpoint + confidential notes.
+- **Notification Center** — role-aware, categorized (`action_required`, `reminder`, `info`), soft-delete archive, dashboard "Needs your attention" strip, per-severity bell badge color, `campaign.expiring.30d/14d/7d/1d` reminders via background scheduler.
+- **Operational reports & dashboards** — proposal counts by status, monthly submitted/approved trend, top networks purchased, inventory product count, active reps. Zero revenue metrics displayed.
+- **Auth**: JWT + bcrypt + Resend-driven password reset (env-driven RESEND_API_KEY + RESEND_FROM_EMAIL).
+- **Modular backend**: `server.py` orchestrator + `core / security / models / audit_helper / email_service / storage / notifications / networks_data / scheduler / seed / routers/*`.
+- **Multi-role admins**: `owner` + `admin` + `representative`. Owner can create/remove admins.
+- **Audit log**: every state-changing action logged.
+- **Migration**: legacy campaigns/sponsorships from earlier iterations were auto-promoted to `approved` status and their revenue fields dropped.
 
 ## Prioritized Backlog
 ### P1 (post-first-finish)

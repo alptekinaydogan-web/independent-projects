@@ -13,7 +13,6 @@ from scheduler import start_scheduler, run_once
 
 # Routers
 from routers.auth import router as auth_router
-from routers.countries import router as countries_router
 from routers.representatives import router as reps_router
 from routers.inventory import router as inventory_router
 from routers.campaigns import router as campaigns_router
@@ -31,7 +30,7 @@ app = FastAPI(title="Independent Media Hub API")
 
 # All routes under /api
 api = APIRouter(prefix="/api")
-for r in (auth_router, countries_router, reps_router, inventory_router,
+for r in (auth_router, reps_router, inventory_router,
           campaigns_router, tv_router, proposals_router, reports_router,
           uploads_router, owner_router, audit_router, scheduler_router,
           notifications_router):
