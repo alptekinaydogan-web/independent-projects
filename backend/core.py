@@ -20,6 +20,10 @@ EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 APP_NAME = os.environ.get("APP_NAME", "independent-media-hub")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+CAMPAIGN_REMINDER_DAYS = sorted({
+    int(x.strip()) for x in os.environ.get("CAMPAIGN_REMINDER_DAYS", "30,14,7,1").split(",")
+    if x.strip().isdigit()
+}, reverse=True) or [30, 14, 7, 1]
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")]
 
 # ---- Constants ----

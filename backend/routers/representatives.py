@@ -67,13 +67,15 @@ async def update_rep(rep_id: str, body: RepresentativeUpdate, admin: dict = Depe
                               if active
                               else "An administrator temporarily suspended your access. Reach out to your platform owner to restore it."),
                      entity_type="user", entity_id=rep_id,
-                     link="/rep")
+                     link="/rep",
+                     severity=("info" if active else "action_required"))
     if password_reset:
         await notify([rep_id],
                      event_type="representative.password_reset",
                      title="Your password was reset by an administrator",
                      message="An administrator set a new password for your account. If you did not request this, contact the platform owner immediately.",
-                     entity_type="user", entity_id=rep_id, link="/rep")
+                     entity_type="user", entity_id=rep_id, link="/rep",
+                     severity="info")
 
     doc.pop("_id", None); doc.pop("password_hash", None)
     return doc

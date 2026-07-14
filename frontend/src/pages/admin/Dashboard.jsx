@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import ActionableStrip from "@/components/ActionableStrip";
 
 function Metric({ label, value, sub, testId }) {
   return (
@@ -33,6 +34,9 @@ export default function AdminDashboard() {
         description="Commercial activity across the entire Independent Media Network — banner campaigns and Independent TV sponsorships booked by our representatives."
       />
       <div className="px-10 py-10 grid grid-cols-12 gap-6">
+        <div className="col-span-12">
+          <ActionableStrip base="/admin" />
+        </div>
         <div className="col-span-12 grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Metric label="Client Revenue · Banners" value={d ? usd(d.campaigns_client_revenue_usd) : "—"} sub={d ? `${num(d.campaign_count)} campaigns` : ""} testId="metric-banner-rev" />
           <Metric label="Client Revenue · TV" value={d ? usd(d.tv_client_revenue_usd) : "—"} sub={d ? `${num(d.sponsorship_count)} sponsorships` : ""} testId="metric-tv-rev" />

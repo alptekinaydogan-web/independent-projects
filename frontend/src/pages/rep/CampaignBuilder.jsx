@@ -20,6 +20,10 @@ export default function CampaignBuilder() {
   const [campaignName, setCampaignName] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientPrice, setClientPrice] = useState("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10);
+  });
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -84,6 +88,9 @@ export default function CampaignBuilder() {
     if (!campaignName || !clientName || selected.size === 0 || !defaultImpressions || !priceNum) {
       toast.error("Fill all fields and select at least one country"); return;
     }
+    if (endDate && startDate && endDate < startDate) {
+      toast.error("End date must be on or after start date"); return;
+    }
     setBusy(true);
     try {
       const per = {};
@@ -95,7 +102,10 @@ export default function CampaignBuilder() {
         country_codes: Array.from(selected),
         impressions: Number(defaultImpressions),
         per_country_impressions: per,
-        client_total_price: priceNum, notes,
+        client_total_price: priceNum,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        notes,
       });
       toast.success("Campaign confirmed");
       nav("/rep/banners");
@@ -213,6 +223,10 @@ export default function CampaignBuilder() {
             <div className="mt-4 space-y-4">
               <F label="Campaign name"><Input data-testid="campaign-name" value={campaignName} onChange={e => setCampaignName(e.target.value)} /></F>
               <F label="Client name"><Input data-testid="campaign-client" value={clientName} onChange={e => setClientName(e.target.value)} /></F>
+              <div className="grid grid-cols-2 gap-3">
+                <F label="Start date"><Input data-testid="campaign-start" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></F>
+                <F label="End date"><Input data-testid="campaign-end" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></F>
+              </div>
               <F label="Default impressions / country"><Input data-testid="campaign-impressions" type="number" value={defaultImpressions} onChange={e => setDefaultImpressions(e.target.value)} /></F>
               <F label="Client total price (USD)"><Input data-testid="campaign-price" type="number" value={clientPrice} onChange={e => setClientPrice(e.target.value)} /></F>
               <F label="Notes"><Input data-testid="campaign-notes" value={notes} onChange={e => setNotes(e.target.value)} /></F>

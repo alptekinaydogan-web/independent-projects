@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 from core import CORS_ORIGINS, client, logger
 from storage import init_storage
 from seed import run_seed
+from scheduler import start_scheduler, run_once
 
 # Routers
 from routers.auth import router as auth_router
@@ -22,6 +23,7 @@ from routers.reports import router as reports_router
 from routers.uploads import router as uploads_router
 from routers.owner import router as owner_router
 from routers.audit_log import router as audit_router
+from routers.scheduler_admin import router as scheduler_router
 from notifications import router as notifications_router
 
 
@@ -31,7 +33,8 @@ app = FastAPI(title="Independent Media Hub API")
 api = APIRouter(prefix="/api")
 for r in (auth_router, countries_router, reps_router, inventory_router,
           campaigns_router, tv_router, proposals_router, reports_router,
-          uploads_router, owner_router, audit_router, notifications_router):
+          uploads_router, owner_router, audit_router, scheduler_router,
+          notifications_router):
     api.include_router(r)
 app.include_router(api)
 
@@ -52,6 +55,7 @@ async def startup():
     except Exception as e:
         logger.warning(f"Storage init failed (uploads disabled until fixed): {e}")
     await run_seed()
+    start_scheduler()
 
 
 @app.on_event("shutdown")

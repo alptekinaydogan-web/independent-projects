@@ -49,6 +49,8 @@ class CampaignCreate(BaseModel):
     impressions: int
     per_country_impressions: Optional[Dict[str, int]] = None
     client_total_price: float
+    start_date: Optional[str] = None  # ISO date (YYYY-MM-DD)
+    end_date: Optional[str] = None    # ISO date (YYYY-MM-DD)
     notes: Optional[str] = ""
 
 

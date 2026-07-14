@@ -19,6 +19,13 @@ async def create_indexes() -> None:
     await db.audit_log.create_index([("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
+    await db.notifications.create_index([("event_type", 1), ("entity_id", 1)])
+    await db.campaigns.create_index("end_date")
+    # Backfill missing severity/archived fields on legacy notifications
+    await db.notifications.update_many(
+        {"severity": {"$exists": False}}, {"$set": {"severity": "info"}})
+    await db.notifications.update_many(
+        {"archived": {"$exists": False}}, {"$set": {"archived": False}})
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
 
 

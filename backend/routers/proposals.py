@@ -48,12 +48,17 @@ async def create_proposal(body: ProposalCreate, user: dict = Depends(require_rep
 DECISION_TITLE = {
     "approved": "Your TV proposal was approved",
     "rejected": "Your TV proposal was not approved",
-    "in_review": "Your TV proposal is under revision review",
+    "in_review": "Your TV proposal requires revision",
 }
 DECISION_MSG = {
     "approved": "Great news — Independent TV will move it forward. The team will be in touch with next steps.",
     "rejected": "Independent TV has declined this concept for now.",
     "in_review": "The administrator has requested revisions before making a final decision.",
+}
+DECISION_SEVERITY = {
+    "approved": "info",
+    "rejected": "info",
+    "in_review": "action_required",
 }
 
 
@@ -80,7 +85,8 @@ async def decide_proposal(proposal_id: str, body: ProposalDecision, admin: dict 
                      event_type=f"proposal.{body.status}",
                      title=f"{DECISION_TITLE[body.status]} · {before['title']}",
                      message=f"{DECISION_MSG[body.status]}{note}",
-                     entity_type="proposal", entity_id=proposal_id, link="/rep/proposals")
+                     entity_type="proposal", entity_id=proposal_id, link="/rep/proposals",
+                     severity=DECISION_SEVERITY[body.status])
 
     doc.pop("_id", None)
     return doc

@@ -6,6 +6,7 @@ import { usd, num } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ArrowUpRight, Radio, FilmIcon, Send } from "lucide-react";
+import ActionableStrip from "@/components/ActionableStrip";
 
 function Metric({ label, value, sub, testId }) {
   return (
@@ -35,6 +36,7 @@ export default function RepDashboard() {
         description="Two commercial modules. One platform. Sell across the Independent Media Network from a single workspace."
       />
       <div className="px-10 py-10 space-y-10">
+        <ActionableStrip base="/rep" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Metric label="Your Banner Revenue" value={d ? usd(d.campaigns_client_revenue_usd) : "—"} sub={d ? `${num(d.campaign_count)} campaigns` : ""} testId="rep-metric-banner" />
           <Metric label="Your TV Revenue" value={d ? usd(d.tv_client_revenue_usd) : "—"} sub={d ? `${num(d.sponsorship_count)} sponsorships` : ""} testId="rep-metric-tv" />
