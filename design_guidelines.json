@@ -1,0 +1,114 @@
+{
+  "theme": "light",
+  "typography": {
+    "headings": {
+      "family": "Playfair Display",
+      "weights": ["400", "600", "700"],
+      "usage": "Massive serif headlines for TV projects, dashboard page titles, and split screen messaging."
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "weights": ["400", "500", "600"],
+      "usage": "Clean, highly readable UI text for forms, navigation, buttons, and descriptions."
+    },
+    "data": {
+      "family": "IBM Plex Mono",
+      "weights": ["400", "500"],
+      "usage": "Numbers, currency, tables, data points, and metadata tags."
+    }
+  },
+  "colors": {
+    "background": {
+      "app": "#F9F9F6",
+      "surface": "#FFFFFF",
+      "sidebar": "#0A1128",
+      "login_left": "#050A18"
+    },
+    "text": {
+      "primary": "#0A0A0A",
+      "secondary": "#52525B",
+      "inverse": "#FFFFFF",
+      "muted": "#A1A1AA"
+    },
+    "primary": {
+      "DEFAULT": "#0033A0",
+      "hover": "#002277",
+      "foreground": "#FFFFFF"
+    },
+    "accents": {
+      "success": "#166534",
+      "warning": "#B45309",
+      "error": "#991B1B",
+      "editorial_red": "#8B0000"
+    },
+    "border": "#E4E4E1",
+    "border_dark": "#1E293B"
+  },
+  "visual_enhancers": {
+    "borders": "Sharp 1px solid borders on all cards, tables, and inputs. No soft box-shadows. Rely on structural grayscale and high contrast.",
+    "radius": "0px or 2px maximum. Sharp edges reinforce the premium, executive, Bloomberg/Financial Times B2B feel.",
+    "spacing": "Generous padding inside components (p-6, p-8) but tight grid gaps (gap-4) for data density.",
+    "textures": "Subtle grain or noise on dark surfaces (like the login left panel or sidebar) to give an organic, premium feel rather than flat vectors."
+  },
+  "components": {
+    "cards": "Flat white surfaces with 1px border (border-[#E4E4E1]). No shadows. Use borders to separate grid items.",
+    "buttons": "Sharp rectangles. Primary buttons use Cobalt Blue (#0033A0). Secondary buttons use transparent background with 1px black border.",
+    "inputs": "Shadcn inputs customized with 0px radius, sharp focus rings (2px Cobalt Blue), and IBM Plex Sans font.",
+    "tables": "High density. IBM Plex Mono for numeric columns. 1px bottom border on rows, no vertical dividers.",
+    "sidebar": "Fixed, dark executive navy (#0A1128) background. Object-based navigation. Light text.",
+    "charts": "Recharts. Simple bars and lines. Minimal grid lines, no complex 3D charts."
+  },
+  "layouts": {
+    "login": "50/50 Split screen. Left: Immersive dark image overlay (black/70) with Playfair Display messaging about the network's vision. Right: Stone background (#F9F9F6), vertically centered minimal form (Email, Password, Sign In).",
+    "dashboard": "260px Dark Sidebar. Top header with breadcrumbs and user profile. Main content area structured in a strict grid.",
+    "tv_project_page": "Editorial layout. Massive edge-to-edge hero image with dark gradient overlay. Content in a centered reading column (max-w-4xl) with a sticky right sidebar for Sponsorship Checkout."
+  },
+  "images": {
+    "login_background": {
+      "url": "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwyfHx0ZWxldmlzaW9uJTIwc3R1ZGlvJTIwYnJvYWRjYXN0JTIwY29udHJvbCUyMHJvb218ZW58MHx8fHwxNzg0MDIxMDA1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Executive broadcast control room for the left side of the split login screen. Apply a heavy dark overlay."
+    },
+    "tv_project_hero_1": {
+      "url": "https://images.unsplash.com/photo-1760637627433-e7de199a8243?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwzfHxuYXR1cmUlMjBkb2N1bWVudGFyeSUyMGxhbmRzY2FwZSUyMGZpbG1pbmd8ZW58MHx8fHwxNzg0MDIxMDA1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Nature documentary landscape filming hero image for a TV project presentation."
+    },
+    "tv_project_hero_2": {
+      "url": "https://images.unsplash.com/photo-1640130541949-aa5d40f9635d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwzfHxpbnZlc3RpZ2F0aXZlJTIwam91cm5hbGlzbSUyMGRlc2slMjB2aW50YWdlfGVufDB8fHx8MTc4NDAyMTAwNHww&ixlib=rb-4.1.0&q=85",
+      "description": "Investigative journalism vintage desk for a documentary series presentation."
+    }
+  },
+  "libraries": {
+    "recommendation": "react-simple-maps, recharts, lucide-react",
+    "usage": "Use react-simple-maps for the 'International banner campaign builder' to show a clean, 2D minimalist world map for country selection. Avoid 3D globe as it contradicts the flat, editorial aesthetic."
+  },
+  "instructions_to_main_agent": [
+    "NOTE: The project uses .js files, NOT .tsx files. Write all React code in standard Javascript + JSX.",
+    "Install Google Fonts in index.css: Playfair Display, IBM Plex Sans, IBM Plex Mono.",
+    "Implement Shadcn UI but override ALL rounded corners to 0px or 2px. Remove default Vercel-like soft shadows in Tailwind config.",
+    "Build the Login page as a split screen at the root path ('/'). No registration links. It must feel like a closed, private portal.",
+    "Build an Admin Dashboard ('/admin') and Representative Dashboard ('/rep').",
+    "In the Representative Dashboard, implement the Banner Campaign Builder with a multi-select list of countries (use react-simple-maps if feasible, otherwise a well-styled list/grid of regions).",
+    "For TV Sponsorships, build an index page with an editorial grid, and a detail page that feels like a 'Financial Times' long-form article.",
+    "Use lucide-react for icons. Keep them sharp and minimal.",
+    "Use pure HTML/Tailwind for the high-end TV Project presentation pages, relying on standard Shadcn only for the checkout/form interactions.",
+    "DO NOT use complete `transparent` background in header, overlays, or any surface that has content under it."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy and crisp 1px borders rather than soft shadows.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) only where necessary, avoiding muddy grey transparency.",
+    "You MUST NOT apply universal transition. Eg: `transition: all`. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file.",
+    "Always use sharp button styles with interaction animations & color relevant to the app style.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, custom selection states, and loading animations separate good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories = main agent will use placeholder text which is FORBIDDEN.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use `sonner` for toasts.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute to facilitate robust automated testing."
+  ]
+}
