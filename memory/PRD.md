@@ -24,14 +24,23 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
-## What's Implemented (Feb 2026)
+## What's Implemented (Feb 2026 · Iteration 7)
+- **Full proposal lifecycle history**: every commercial proposal (banner + TV sponsorship) carries an append-only `history` array. Statuses: `submitted → revision_requested → revised → approved | rejected → archived`. Each entry stores actor, timestamp, `representative_feedback` and `internal_notes`.
+- **Split note channels**: admins now write two separate notes on every decision — `representative_feedback` (shared with rep) and `internal_notes` (admin-only, never exposed to reps). Backend strips `internal_notes` from every rep-facing response.
+- **Duplicate & Revise workflow**: representatives can duplicate any `revision_requested` proposal directly from the list. A prefilled dialog lets them adjust only what changed; new proposal is created with `status="revised"` and `parent_proposal_id` back-linking to the original. Available for banner + sponsorship.
+- **Proposal history drawer**: shared React component surfaces the complete lifecycle timeline. Rep view hides internal notes; admin view shows both channels.
+- **Archive & retention**: admins can manually archive/unarchive any proposal. Background scheduler auto-archives finished proposals after `PROPOSAL_ARCHIVE_DAYS` (default 90) days beyond `end_date` (banner) or `decided_at` (sponsorship). Archived items remain searchable via `?include_archived=true`.
+- **Admin CSV export** (`GET /api/reports/proposals/export.csv`): extended fields — proposal_id, parent_proposal_id, kind, status, is_archived, created_at, decided_at, archived_at, rep_name, agency_name, client_reference, proposal_name, inventory (network/position or TV title + episodes), impressions, flight dates, offer_amount_usd, representative_feedback, internal_notes, last_decision_actor, history_length. Filterable by month + kind + include_archived.
+- **Resend production-ready**: `RESEND_API_KEY` and `RESEND_FROM_EMAIL` fully env-driven — no code changes needed for deployment. When key is empty, dev fallback logs reset links.
+
+## What's Implemented (Feb 2026 · Iteration 6)
 - **Commercial model = negotiated commercial proposals**. There are no fixed prices, no internal costs, no representative revenue, no margin, no client price anywhere in the platform. Representatives negotiate with their customers OFF-platform, then submit a confidential commercial proposal to Independent Media Network. Administrators approve / reject / request revision. Proposals are private per representative — reps never see each other's offers.
 - **Inventory = network × position catalog**. 9 networks (Global + Tourism, Health, Real Estate, Education, Economy, Sports, Technology, Entertainment) × 10 standardized positions (Hero, Header, Sidebar Top/Bottom, Article Top/Middle/Bottom, Footer, Mobile, Sticky) = 90 products. Each product spans the entire network automatically; adding country sites does not require any UI change.
 - **Two commercial modules, both proposal-based**: Banner Proposals and TV Sponsorship Proposals. Each has `pending_review → approved / rejected / revision_requested` lifecycle with admin decision endpoint + confidential notes.
 - **Notification Center** — role-aware, categorized (`action_required`, `reminder`, `info`), soft-delete archive, dashboard "Needs your attention" strip, per-severity bell badge color, `campaign.expiring.30d/14d/7d/1d` reminders via background scheduler.
 - **Operational reports & dashboards** — proposal counts by status, monthly submitted/approved trend, top networks purchased, inventory product count, active reps. Zero revenue metrics displayed.
 - **Auth**: JWT + bcrypt + Resend-driven password reset (env-driven RESEND_API_KEY + RESEND_FROM_EMAIL).
-- **Modular backend**: `server.py` orchestrator + `core / security / models / audit_helper / email_service / storage / notifications / networks_data / scheduler / seed / routers/*`.
+- **Modular backend**: `server.py` orchestrator + `core / security / models / audit_helper / email_service / storage / notifications / networks_data / scheduler / seed / proposal_history / routers/*`.
 - **Multi-role admins**: `owner` + `admin` + `representative`. Owner can create/remove admins.
 - **Audit log**: every state-changing action logged.
 - **Migration**: legacy campaigns/sponsorships from earlier iterations were auto-promoted to `approved` status and their revenue fields dropped.
@@ -49,6 +58,5 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Multi-admin roles (reviewer vs owner).
 
 ## Next Tasks
-1. Run end-to-end testing subagent covering auth + full commercial workflow for both roles.
-2. Fix any critical issues surfaced by testing agent.
-3. Consider revenue enhancement: exportable "Investment Memorandum" PDF for TV project pages so representatives can share the presentation with clients as a branded proposal.
+1. (Optional P2) Auto-generated PDF proposal letters signed by Independent Media Network on approval, serving as a closable sales document for the rep's customer.
+2. Consider revenue enhancement: exportable "Investment Memorandum" PDF for TV project pages so representatives can share the presentation with clients as a branded proposal.

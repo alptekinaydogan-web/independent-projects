@@ -3,13 +3,18 @@ import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import ProposalHistoryDrawer from "@/components/ProposalHistoryDrawer";
+import DuplicateProposalDialog from "@/components/DuplicateProposalDialog";
+import { Plus, Copy, History } from "lucide-react";
 
 const STATUS_STYLE = {
-  pending_review:     { bg: "#F5F0E1", color: "#B45309", label: "Pending review" },
+  pending_review:     { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
+  submitted:          { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
+  revised:            { bg: "#EEF2FF", color: "#0033A0", label: "Revised" },
   approved:           { bg: "#E6F2EA", color: "#166534", label: "Approved" },
   rejected:           { bg: "#FBEBEB", color: "#991B1B", label: "Rejected" },
   revision_requested: { bg: "#EEF2FF", color: "#0033A0", label: "Revision requested" },
+  archived:           { bg: "#EFEEEA", color: "#52525B", label: "Archived" },
 };
 
 const LIFECYCLE_STYLE = {
@@ -20,7 +25,11 @@ const LIFECYCLE_STYLE = {
 
 export default function BannerProposals() {
   const [items, setItems] = useState([]);
-  useEffect(() => { api.get("/campaigns").then(r => setItems(r.data)); }, []);
+  const [historyOf, setHistoryOf] = useState(null);
+  const [duplicateOf, setDuplicateOf] = useState(null);
+
+  const load = () => api.get("/campaigns").then(r => setItems(r.data));
+  useEffect(() => { load(); }, []);
 
   return (
     <div>
@@ -41,17 +50,23 @@ export default function BannerProposals() {
               <tr className="text-left border-b border-[#E4E4E1] bg-[#F9F9F6]">
                 <Th>Proposal</Th><Th>Client ref</Th><Th>Inventory</Th>
                 <Th>Status</Th><Th>Lifecycle</Th><Th>Flights</Th>
+                <Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody>
               {items.map(c => {
                 const s = STATUS_STYLE[c.status] || STATUS_STYLE.pending_review;
                 const life = c.lifecycle ? LIFECYCLE_STYLE[c.lifecycle] : null;
+                const canDuplicate = c.status === "revision_requested";
+                const feedback = c.representative_feedback || c.admin_notes;
                 return (
-                  <tr key={c.id} className="border-b border-[#E4E4E1] last:border-b-0" data-testid={`proposal-${c.id}`}>
+                  <tr key={c.id} className="border-b border-[#E4E4E1] last:border-b-0 align-top" data-testid={`proposal-${c.id}`}>
                     <Td>
                       <div className="font-editorial text-base">{c.campaign_name || c.proposal_name || "—"}</div>
-                      {c.admin_notes && <div className="text-xs text-[#52525B] italic mt-1 max-w-md">Admin: {c.admin_notes}</div>}
+                      {c.parent_proposal_id && (
+                        <div className="text-[10px] font-mono-imh text-[#0033A0] mt-1">Revision of #{String(c.parent_proposal_id).slice(0, 8)}</div>
+                      )}
+                      {feedback && <div className="text-xs text-[#52525B] italic mt-1 max-w-md">Feedback: {feedback}</div>}
                     </Td>
                     <Td className="font-mono-imh text-xs">{c.client_reference || c.client_name || "—"}</Td>
                     <Td>
@@ -79,11 +94,29 @@ export default function BannerProposals() {
                     <Td className="font-mono-imh text-xs text-[#52525B]">
                       {c.start_date ? c.start_date.slice(0, 10) : "—"}{c.end_date ? <><br/>→ {c.end_date.slice(0, 10)}</> : null}
                     </Td>
+                    <Td className="text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button onClick={() => setHistoryOf(c)}
+                          data-testid={`proposal-history-${c.id}`}
+                          className="h-8 px-2 border border-[#E4E4E1] hover:border-[#0A0A0A] text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
+                          style={{ transition: "border-color 120ms" }}>
+                          <History size={12} /> History
+                        </button>
+                        {canDuplicate && (
+                          <button onClick={() => setDuplicateOf(c)}
+                            data-testid={`proposal-duplicate-${c.id}`}
+                            className="h-8 px-2 border border-[#0033A0] text-[#0033A0] hover:bg-[#0033A0] hover:text-white text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
+                            style={{ transition: "background 120ms, color 120ms" }}>
+                            <Copy size={12} /> Duplicate & revise
+                          </button>
+                        )}
+                      </div>
+                    </Td>
                   </tr>
                 );
               })}
               {items.length === 0 && (
-                <tr><Td colSpan={6} className="text-center py-16 text-[#52525B]">
+                <tr><Td colSpan={7} className="text-center py-16 text-[#52525B]">
                   You haven't submitted any commercial proposals yet. <Link to="/rep/banners/new" className="text-[#0033A0] underline">Submit your first</Link>.
                 </Td></tr>
               )}
@@ -91,9 +124,15 @@ export default function BannerProposals() {
           </table>
         </div>
       </div>
+
+      <ProposalHistoryDrawer open={!!historyOf} onOpenChange={(v) => !v && setHistoryOf(null)}
+                             proposal={historyOf} isAdminView={false} />
+      <DuplicateProposalDialog kind="banner" original={duplicateOf}
+                                open={!!duplicateOf} onOpenChange={(v) => !v && setDuplicateOf(null)}
+                                onDone={load} />
     </div>
   );
 }
 
-const Th = ({ children }) => <th className="px-6 py-4 text-[11px] uppercase tracking-widest text-[#52525B] font-medium">{children}</th>;
+const Th = ({ children, className = "" }) => <th className={`px-6 py-4 text-[11px] uppercase tracking-widest text-[#52525B] font-medium ${className}`}>{children}</th>;
 const Td = ({ children, className = "", colSpan, style }) => <td colSpan={colSpan} style={style} className={`px-6 py-4 text-[#0A0A0A] ${className}`}>{children}</td>;

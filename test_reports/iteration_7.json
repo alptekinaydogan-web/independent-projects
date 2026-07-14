@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 7 fully verified. Backend: 11/11 pytest cases PASS on /app/backend/tests/test_iteration7.py — covering banner+TV split-notes decisions with rep privacy stripping (top-level + inside every history entry), banner+TV duplicate (parent linkage, status=revised, override merge, cross-rep 403), archive/unarchive with visibility toggle & history entries, and CSV export (24-column header, admin-only 403 for reps, text/csv + attachment content-disposition, month filter + no-month variant). Frontend: verified /rep/banners shows DUPLICATE & REVISE only on revision_requested rows (3 buttons across statuses Submitted/Revised/Approved/Revision requested); DuplicateProposalDialog opens prefilled and successfully creates a new REVISED row visible in the same table with 'Revision of #xxxxxxxx' subtitle; ProposalHistoryDrawer on rep side never renders 'Internal (admin only)' section. Admin /admin/proposals-review has all 6 filter chips (pending, revision_requested, approved, rejected, archived, all), toggle-archived checkbox present, decision panels expose both rep-feedback-{id} and internal-notes-{id} textareas, admin-history-{id} buttons open the shared drawer (isAdminView=true code path). Admin /admin/reports CSV panel exposes csv-month/csv-kind/csv-archived/csv-alltime/csv-download; clicking Download triggered GET /api/reports/proposals/export.csv returning 200 text/csv with attachment filename.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7.py",
+    "/app/test_reports/pytest/iteration7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "strip_internal_notes() correctly removes 'internal_notes' from both top-level and every history entry — verified via dedicated privacy test that also grep'd the JSON blob for the secret marker string (SECRET_ADMIN_ONLY_XYZ).",
+    "Duplicate endpoint validates ownership (parent.rep_id == user.id else 403), preserves parent linkage via parent_proposal_id, and inherits any non-overridden field. TV duplicate correctly inherits episode_numbers when not overridden.",
+    "Archive/unarchive endpoints are idempotent (repeat archive returns same doc) and produce dedicated history entries.",
+    "CSV export column list matches spec exactly (24 columns in declared order). `_decision_actor` walks history in reverse to pick the most recent decision.",
+    "Legacy fallback: admin_notes on old records is still surfaced via representative_feedback||admin_notes in both UI (Campaigns.jsx line 61) and CSV export (reports.py), preserving backward compat.",
+    "Non-blocking: /api/inventory returns {networks, positions, items} — old test file /app/backend/tests/backend_test.py from iteration 5 still queries deprecated endpoints like /api/banner-inventory and /api/campaigns with old client_total_price fields; those tests will fail against the current post-iteration-6 API surface. Recommend deleting or rewriting that legacy file. It did not affect this iteration's verification (dedicated test_iteration7.py used).",
+    "Non-blocking observation: proposal duplicate dialog for sponsorship intentionally does not let user change episodes (comment on line 44 of DuplicateProposalDialog.jsx) — episode override is only possible via API, not UI. Acceptable per PRD but worth noting for future UX."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration7.py (new)"
+  ],
+  "success_rate": { "backend": "100% (11/11 pytest)", "frontend": "100% — duplicate dialog + revised row appearance, history drawer rep-privacy verified, admin filters + split-notes textareas + CSV download all functional" },
+  "test_credentials": "Owner: admin@independentmedia.hub / Admin2026! ; Reps: victor.laurent@parismedia.fr / Rep2026! ; amelia.hart@londonhouse.co.uk / Rep2026!",
+  "seed_data_creation": "Several TEST_it7_* banner/TV proposals were created during pytest and during the frontend duplicate submission (2 additional REVISED banners in rep Victor's table). These are safe to leave — they don't affect production paths and iteration 6 already established that TEST_-prefixed cruft is tolerated.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fixture setup in test_iteration7.py: REACT_APP_BACKEND_URL must be exported before running (frontend/.env). Reused endpoints: GET /api/inventory (returns {networks, positions, items}), POST /api/campaigns, POST /api/sponsorships, PATCH /api/campaigns/{id}/decision with body {decision, representative_feedback, internal_notes}, POST /api/campaigns/{id}/duplicate {offer_amount_usd, notes,...}, POST /api/campaigns/{id}/archive {reason}, POST /api/campaigns/{id}/unarchive, GET /api/reports/proposals/export.csv?month=&kind=&include_archived=. Login uses access_token key. TV project's sponsored_episodes shape differs between list (list[int]) and detail (list[dict{episode,...}]) — helper in test file handles both.",
+  "rca of the issue": "N/A — no defects found. All 13 stated iteration 7 test-cases (7 backend flows + 5 frontend UI + CSV export) verified successfully."
+}

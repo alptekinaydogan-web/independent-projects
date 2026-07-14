@@ -1,7 +1,11 @@
 """Independent TV projects + commercial sponsorship proposals.
 
 Sponsorship proposals are negotiated: rep proposes an offer amount for one or
-more episodes, admin approves / rejects / requests revision. No fixed price.
+more episodes, admin approves / rejects / requests revision / archives. No
+fixed price. Full lifecycle mirrors the banner router:
+
+    submitted (pending_review) → revision_requested → duplicate → revised
+    → approved | rejected → archived
 """
 import uuid
 from typing import Optional
@@ -9,12 +13,22 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from core import db, now_iso, ADMIN_ROLES
-from models import TVProjectCreate, TVProjectUpdate, TVProjectStatusUpdate, TVProposalCreate, ProposalDecisionBody
+from models import (TVProjectCreate, TVProjectUpdate, TVProjectStatusUpdate,
+                    TVProposalCreate, ProposalDecisionBody, ProposalArchiveBody,
+                    ProposalDuplicateOverrides)
 from security import get_current_user, require_admin, require_rep
 from audit_helper import audit
 from notifications import notify, notify_all_admins, notify_all_active_reps
+from proposal_history import history_entry, strip_internal_notes, resolve_feedback
 
 router = APIRouter(tags=["tv"])
+
+
+def _finalize_sponsorship(p: dict, user: dict) -> dict:
+    p.pop("_id", None)
+    if user["role"] not in ADMIN_ROLES:
+        p = strip_internal_notes(p)
+    return p
 
 
 # ---------- TV Projects ----------
@@ -29,14 +43,12 @@ async def list_tv_projects(user: dict = Depends(get_current_user),
     items = await db.tv_projects.find(q).sort("created_at", -1).to_list(500)
     for i in items:
         i.pop("_id", None)
-        # unique already-approved episodes (only approved sponsorships count)
         cur = db.sponsorships.find({"tv_project_id": i["id"], "status": "approved"})
         eps = set()
         async for s in cur:
             for e in s.get("episode_numbers", []):
                 eps.add(e)
         i["sponsored_episodes"] = sorted(eps)
-        # also count pending on this project for admin visibility
         pending = await db.sponsorships.count_documents({"tv_project_id": i["id"], "status": "pending_review"})
         i["pending_review_count"] = pending
     return items
@@ -138,12 +150,23 @@ async def set_tv_project_status(project_id: str, body: TVProjectStatusUpdate,
 
 # ---------- Sponsorship proposals ----------
 @router.get("/sponsorships")
-async def list_sponsorships(user: dict = Depends(get_current_user)):
-    q = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
+async def list_sponsorships(user: dict = Depends(get_current_user),
+                             include_archived: bool = False):
+    q: dict = {} if user["role"] in ADMIN_ROLES else {"rep_id": user["id"]}
+    if not include_archived:
+        q["is_archived"] = {"$ne": True}
     items = await db.sponsorships.find(q).sort("created_at", -1).to_list(500)
-    for i in items:
-        i.pop("_id", None)
-    return items
+    return [_finalize_sponsorship(i, user) for i in items]
+
+
+@router.get("/sponsorships/{proposal_id}")
+async def get_sponsorship(proposal_id: str, user: dict = Depends(get_current_user)):
+    doc = await db.sponsorships.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if user["role"] not in ADMIN_ROLES and doc.get("rep_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return _finalize_sponsorship(doc, user)
 
 
 @router.post("/sponsorships")
@@ -158,8 +181,6 @@ async def create_sponsorship_proposal(body: TVProposalCreate, user: dict = Depen
     if body.offer_amount_usd <= 0:
         raise HTTPException(status_code=400, detail="Offer amount must be greater than zero")
 
-    # Only approved sponsorships block an episode. Pending proposals may compete
-    # for the same episode; admin picks which one to approve.
     taken = set()
     async for s in db.sponsorships.find({"tv_project_id": body.tv_project_id, "status": "approved"}):
         for e in s.get("episode_numbers", []):
@@ -183,7 +204,12 @@ async def create_sponsorship_proposal(body: TVProposalCreate, user: dict = Depen
         "offer_amount_usd": float(body.offer_amount_usd),
         "notes": body.notes,
         "status": "pending_review",
-        "admin_notes": "", "decided_at": "",
+        "representative_feedback": "", "internal_notes": "",
+        "admin_notes": "",
+        "decided_at": "",
+        "parent_proposal_id": None,
+        "is_archived": False, "archived_at": "", "archived_by": "",
+        "history": [history_entry("submitted", user)],
         "created_at": now_iso(),
     }
     await db.sponsorships.insert_one(proposal)
@@ -201,9 +227,7 @@ async def create_sponsorship_proposal(body: TVProposalCreate, user: dict = Depen
         link="/admin/proposals-review",
         severity="action_required",
     )
-
-    proposal.pop("_id", None)
-    return proposal
+    return _finalize_sponsorship(proposal, user)
 
 
 TV_DECISION_MAP = {
@@ -221,11 +245,11 @@ async def decide_sponsorship_proposal(proposal_id: str, body: ProposalDecisionBo
     doc = await db.sponsorships.find_one({"id": proposal_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
+    if doc.get("is_archived"):
+        raise HTTPException(status_code=400, detail="Proposal is archived")
     if doc.get("status") == body.decision:
-        doc.pop("_id", None)
-        return doc
+        return _finalize_sponsorship(doc, admin)
 
-    # When approving, ensure no other approved proposal has already taken these episodes
     if body.decision == "approved":
         taken = set()
         async for s in db.sponsorships.find(
@@ -237,15 +261,24 @@ async def decide_sponsorship_proposal(proposal_id: str, body: ProposalDecisionBo
         if clash:
             raise HTTPException(status_code=409, detail=f"Episodes already taken: {clash}")
 
+    rep_feedback = resolve_feedback(body)
+    internal = (body.internal_notes or "").strip()
+    entry = history_entry(body.decision, admin,
+                          representative_feedback=rep_feedback,
+                          internal_notes=internal)
+
     await db.sponsorships.update_one({"id": proposal_id},
                                       {"$set": {"status": body.decision,
-                                                 "admin_notes": body.admin_notes or "",
-                                                 "decided_at": now_iso()}})
+                                                 "representative_feedback": rep_feedback,
+                                                 "internal_notes": internal,
+                                                 "admin_notes": rep_feedback,
+                                                 "decided_at": now_iso()},
+                                       "$push": {"history": entry}})
     await audit(admin, f"proposal.sponsorship.{body.decision}", "sponsorship", proposal_id,
-                {"admin_notes": body.admin_notes or ""})
+                {"representative_feedback": rep_feedback, "has_internal_notes": bool(internal)})
 
     meta = TV_DECISION_MAP[body.decision]
-    note = f" · Note: {body.admin_notes}" if body.admin_notes else ""
+    note = f" · Note: {rep_feedback}" if rep_feedback else ""
     await notify([doc["rep_id"]],
                  event_type=f"sponsorship_proposal.{body.decision}",
                  title=f"{meta['title']} · {doc.get('tv_project_title', '')}",
@@ -255,5 +288,128 @@ async def decide_sponsorship_proposal(proposal_id: str, body: ProposalDecisionBo
                  severity=meta["severity"])
 
     updated = await db.sponsorships.find_one({"id": proposal_id})
-    updated.pop("_id", None)
-    return updated
+    return _finalize_sponsorship(updated, admin)
+
+
+@router.post("/sponsorships/{proposal_id}/duplicate")
+async def duplicate_sponsorship_proposal(proposal_id: str,
+                                          body: ProposalDuplicateOverrides,
+                                          user: dict = Depends(require_rep)):
+    parent = await db.sponsorships.find_one({"id": proposal_id})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Original sponsorship not found")
+    if parent.get("rep_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="You can only duplicate your own proposals")
+
+    project = await db.tv_projects.find_one({"id": parent.get("tv_project_id")})
+    if not project:
+        raise HTTPException(status_code=404, detail="Original TV project no longer exists")
+    if project.get("status") != "active":
+        raise HTTPException(status_code=400, detail="TV project is not open for new proposals")
+
+    def pick(over, fallback):
+        return over if over is not None else fallback
+
+    episodes = pick(body.episode_numbers, parent.get("episode_numbers")) or []
+    if not episodes:
+        raise HTTPException(status_code=400, detail="At least one episode must be selected")
+
+    # Episodes already approved on the project (excluding parent — parent stays historical, not blocking)
+    taken = set()
+    async for s in db.sponsorships.find(
+        {"tv_project_id": project["id"], "status": "approved", "id": {"$ne": parent["id"]}}
+    ):
+        for e in s.get("episode_numbers", []):
+            taken.add(e)
+    for e in episodes:
+        if e in taken:
+            raise HTTPException(status_code=409, detail=f"Episode {e} is already sponsored")
+        if e < 1 or e > project["total_episodes"]:
+            raise HTTPException(status_code=400, detail=f"Invalid episode {e}")
+
+    offer = pick(body.offer_amount_usd, parent.get("offer_amount_usd"))
+    if not offer or float(offer) <= 0:
+        raise HTTPException(status_code=400, detail="Offer amount must be greater than zero")
+
+    proposal_name = pick(body.proposal_name, parent.get("proposal_name")) or "Revised sponsorship"
+    client_ref = pick(body.client_reference, parent.get("client_reference")) or ""
+    notes = pick(body.notes, parent.get("notes"))
+
+    new = {
+        "id": str(uuid.uuid4()),
+        "kind": "sponsorship",
+        "tv_project_id": project["id"], "tv_project_title": project["title"],
+        "rep_id": user["id"], "rep_name": user["name"],
+        "agency_name": user.get("agency_name", ""),
+        "proposal_name": proposal_name,
+        "client_reference": client_ref,
+        "episode_numbers": sorted(episodes),
+        "episode_count": len(episodes),
+        "offer_amount_usd": float(offer),
+        "notes": notes or "",
+        "status": "revised",
+        "representative_feedback": "", "internal_notes": "",
+        "admin_notes": "",
+        "decided_at": "",
+        "parent_proposal_id": parent["id"],
+        "is_archived": False, "archived_at": "", "archived_by": "",
+        "history": [
+            history_entry("revised", user,
+                          representative_feedback=f"Revision of proposal {parent['id']}"),
+        ],
+        "created_at": now_iso(),
+    }
+    await db.sponsorships.insert_one(new)
+
+    await audit(user, "proposal.sponsorship.revised", "sponsorship", new["id"], {
+        "parent": parent["id"], "offer_amount_usd": new["offer_amount_usd"],
+    })
+    await notify_all_admins(
+        event_type="sponsorship_proposal.revised",
+        title=f"Revised TV sponsorship · {project['title']}",
+        message=(f"{user.get('agency_name', user['name'])} resubmitted a revised sponsorship proposal for "
+                 f"{len(episodes)} episode(s) at ${int(new['offer_amount_usd']):,}. Review the updated offer."),
+        entity_type="sponsorship", entity_id=new["id"],
+        link="/admin/proposals-review",
+        severity="action_required",
+    )
+    return _finalize_sponsorship(new, user)
+
+
+@router.post("/sponsorships/{proposal_id}/archive")
+async def archive_sponsorship(proposal_id: str,
+                               body: ProposalArchiveBody,
+                               admin: dict = Depends(require_admin)):
+    doc = await db.sponsorships.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if doc.get("is_archived"):
+        return _finalize_sponsorship(doc, admin)
+    entry = history_entry("archived", admin, internal_notes=(body.reason or "").strip())
+    await db.sponsorships.update_one({"id": proposal_id},
+                                      {"$set": {"is_archived": True,
+                                                 "archived_at": now_iso(),
+                                                 "archived_by": admin["id"]},
+                                       "$push": {"history": entry}})
+    await audit(admin, "proposal.sponsorship.archived", "sponsorship", proposal_id,
+                {"reason": body.reason or ""})
+    updated = await db.sponsorships.find_one({"id": proposal_id})
+    return _finalize_sponsorship(updated, admin)
+
+
+@router.post("/sponsorships/{proposal_id}/unarchive")
+async def unarchive_sponsorship(proposal_id: str, admin: dict = Depends(require_admin)):
+    doc = await db.sponsorships.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not doc.get("is_archived"):
+        return _finalize_sponsorship(doc, admin)
+    entry = history_entry("unarchived", admin)
+    await db.sponsorships.update_one({"id": proposal_id},
+                                      {"$set": {"is_archived": False,
+                                                 "archived_at": "",
+                                                 "archived_by": ""},
+                                       "$push": {"history": entry}})
+    await audit(admin, "proposal.sponsorship.unarchived", "sponsorship", proposal_id, {})
+    updated = await db.sponsorships.find_one({"id": proposal_id})
+    return _finalize_sponsorship(updated, admin)

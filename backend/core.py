@@ -24,6 +24,10 @@ CAMPAIGN_REMINDER_DAYS = sorted({
     int(x.strip()) for x in os.environ.get("CAMPAIGN_REMINDER_DAYS", "30,14,7,1").split(",")
     if x.strip().isdigit()
 }, reverse=True) or [30, 14, 7, 1]
+try:
+    PROPOSAL_ARCHIVE_DAYS = int(os.environ.get("PROPOSAL_ARCHIVE_DAYS", "90"))
+except ValueError:
+    PROPOSAL_ARCHIVE_DAYS = 90
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")]
 
 # ---- Constants ----

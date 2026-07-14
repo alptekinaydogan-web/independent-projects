@@ -58,7 +58,29 @@ class TVProposalCreate(BaseModel):
 
 class ProposalDecisionBody(BaseModel):
     decision: str  # approved | rejected | revision_requested
+    # Split notes into two channels — reps only see `representative_feedback`
+    representative_feedback: Optional[str] = ""
+    internal_notes: Optional[str] = ""
+    # Legacy field: if set, treated as `representative_feedback` for backward compat
     admin_notes: Optional[str] = ""
+
+
+class ProposalArchiveBody(BaseModel):
+    reason: Optional[str] = ""
+
+
+class ProposalDuplicateOverrides(BaseModel):
+    """Optional overrides carried by the rep from the duplicate action.
+    All fields are optional — omitted fields inherit the parent proposal.
+    """
+    proposal_name: Optional[str] = None
+    client_reference: Optional[str] = None
+    impressions: Optional[int] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    offer_amount_usd: Optional[float] = None
+    notes: Optional[str] = None
+    episode_numbers: Optional[List[int]] = None
 
 
 # ---- TV projects (editorial + inventory only, NO fixed price) ----

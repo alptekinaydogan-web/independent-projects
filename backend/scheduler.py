@@ -1,4 +1,4 @@
-"""Background scheduler: campaign expiration reminders.
+"""Background scheduler: campaign expiration reminders + proposal auto-archive.
 
 Runs an hourly loop on the FastAPI event loop. For every campaign with an
 end_date, checks whether `days_left` equals one of the configured reminder
@@ -7,13 +7,20 @@ specific reminder for the campaign, notifies the owning representative and
 all administrators. Also emits a `campaign.expired` reminder the day after
 the campaign ends (once).
 
+Additionally, once per day, sweeps proposals whose commercial lifecycle is
+complete and archives anything older than the retention window
+(`PROPOSAL_ARCHIVE_DAYS`, default 90). Archived proposals remain searchable
+by admins but are hidden from operational lists.
+
 Configuration:
     CAMPAIGN_REMINDER_DAYS  — comma-separated days (default "30,14,7,1")
+    PROPOSAL_ARCHIVE_DAYS   — days after campaign end / decision (default 90)
 """
 import asyncio
-from datetime import datetime, timezone
-from core import db, logger, CAMPAIGN_REMINDER_DAYS
+from datetime import datetime, timezone, timedelta
+from core import db, logger, CAMPAIGN_REMINDER_DAYS, PROPOSAL_ARCHIVE_DAYS, now_iso
 from notifications import notify, notify_all_admins
+from proposal_history import history_entry
 
 CHECK_INTERVAL_SECONDS = 3600  # every hour
 
@@ -103,16 +110,72 @@ async def _emit_campaign_reminders() -> None:
         logger.info(f"campaign scheduler emitted {emitted} reminder notification(s)")
 
 
+SYSTEM_ACTOR = {"id": "system", "name": "System auto-archive", "role": "system"}
+
+
+async def _auto_archive_proposals() -> None:
+    """Archive proposals whose commercial lifecycle finished more than
+    PROPOSAL_ARCHIVE_DAYS ago. For banners we use end_date if present,
+    otherwise decided_at. For sponsorships we use decided_at."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=PROPOSAL_ARCHIVE_DAYS)).isoformat()
+    today = datetime.now(timezone.utc).date()
+    archived = 0
+
+    async for c in db.campaigns.find({"is_archived": {"$ne": True},
+                                      "status": {"$in": ["approved", "rejected"]}}):
+        end_raw = c.get("end_date") or ""
+        eligible = False
+        if end_raw:
+            try:
+                ed = datetime.strptime(end_raw[:10], "%Y-%m-%d").date()
+                if (today - ed).days >= PROPOSAL_ARCHIVE_DAYS:
+                    eligible = True
+            except Exception:
+                pass
+        elif c.get("decided_at") and c["decided_at"] < cutoff:
+            eligible = True
+        if eligible:
+            entry = history_entry("archived", SYSTEM_ACTOR,
+                                  internal_notes=f"Auto-archived after {PROPOSAL_ARCHIVE_DAYS}d retention")
+            await db.campaigns.update_one({"id": c["id"]},
+                                           {"$set": {"is_archived": True,
+                                                      "archived_at": now_iso(),
+                                                      "archived_by": "system"},
+                                            "$push": {"history": entry}})
+            archived += 1
+
+    async for s in db.sponsorships.find({"is_archived": {"$ne": True},
+                                          "status": {"$in": ["approved", "rejected"]}}):
+        if s.get("decided_at") and s["decided_at"] < cutoff:
+            entry = history_entry("archived", SYSTEM_ACTOR,
+                                  internal_notes=f"Auto-archived after {PROPOSAL_ARCHIVE_DAYS}d retention")
+            await db.sponsorships.update_one({"id": s["id"]},
+                                              {"$set": {"is_archived": True,
+                                                         "archived_at": now_iso(),
+                                                         "archived_by": "system"},
+                                               "$push": {"history": entry}})
+            archived += 1
+
+    if archived:
+        logger.info(f"auto-archive swept {archived} proposal(s) after {PROPOSAL_ARCHIVE_DAYS}d retention")
+
+
 async def _loop() -> None:
     logger.info(f"campaign scheduler online (thresholds={CAMPAIGN_REMINDER_DAYS}, "
+                f"archive_days={PROPOSAL_ARCHIVE_DAYS}, "
                 f"interval={CHECK_INTERVAL_SECONDS}s)")
     # First run after 30s so startup completes
     await asyncio.sleep(30)
+    tick = 0
     while True:
         try:
             await _emit_campaign_reminders()
+            # Run auto-archive once per 24 hours (every 24 ticks of 1h)
+            if tick % 24 == 0:
+                await _auto_archive_proposals()
         except Exception as e:
             logger.error(f"campaign scheduler loop error: {e}")
+        tick += 1
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)
 
 
@@ -123,3 +186,4 @@ def start_scheduler() -> asyncio.Task:
 # Exposed for manual triggering (e.g. tests / admin endpoint)
 async def run_once() -> None:
     await _emit_campaign_reminders()
+    await _auto_archive_proposals()
