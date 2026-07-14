@@ -1,115 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;900&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    /* IMH – Executive Editorial palette (light) */
+    --imh-bg: #F9F9F6;
+    --imh-surface: #FFFFFF;
+    --imh-ink: #0A0A0A;
+    --imh-sub: #52525B;
+    --imh-muted: #A1A1AA;
+    --imh-border: #E4E4E1;
+    --imh-primary: #0033A0;
+    --imh-primary-hover: #002277;
+    --imh-navy: #0A1128;
+    --imh-navy-deep: #050A18;
+    --imh-editorial-red: #8B0000;
+    --imh-success: #166534;
+    --imh-warning: #B45309;
+    --imh-error: #991B1B;
+
+    /* shadcn tokens mapped to editorial system */
+    --background: 60 8% 97%;          /* #F9F9F6 */
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 222 100% 31%;          /* #0033A0 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 8% 94%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 60 8% 94%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 60 8% 92%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 65% 35%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 60 4% 89%;
+    --input: 60 4% 89%;
+    --ring: 222 100% 31%;
+    --chart-1: 222 100% 31%;
+    --chart-2: 0 0% 15%;
+    --chart-3: 40 90% 45%;
+    --chart-4: 0 100% 27%;
+    --chart-5: 152 60% 27%;
+    --radius: 2px;
+}
+
+html, body, #root { height: 100%; background: var(--imh-bg); }
+
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    color: var(--imh-ink);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: var(--imh-bg);
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+.font-editorial { font-family: 'Playfair Display', 'Times New Roman', serif; font-feature-settings: 'lnum'; }
+.font-mono-imh { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; }
+
+.imh-grain {
+    background-image:
+        radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 3px 3px;
+    background-blend-mode: overlay;
 }
+
+::selection { background: #0033A0; color: #fff; }
+
+.imh-hairline { border: 1px solid var(--imh-border); }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
+    * { border-color: var(--imh-border); }
+    body { background: var(--imh-bg); color: var(--imh-ink); }
+
+    /* Kill default rounded softness across shadcn */
+    .rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl {
+        border-radius: 2px !important;
     }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
+    .rounded-full { border-radius: 9999px !important; }
+    button, [role="button"] { letter-spacing: 0.01em; }
 }
 
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
+/* Ambient premium scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #D4D4D0; border: 2px solid var(--imh-bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Sidebar */
+.imh-sidebar-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    color: #C7CBD9; font-size: 13px; letter-spacing: 0.02em;
+    border-left: 2px solid transparent;
+    transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.imh-sidebar-item:hover { color: #FFFFFF; background: rgba(255,255,255,0.04); }
+.imh-sidebar-item.active { color: #FFFFFF; border-left-color: #FFFFFF; background: rgba(255,255,255,0.06); }
+
+.imh-card { background: #FFFFFF; border: 1px solid var(--imh-border); }
+.imh-metric-number { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Editorial hero overlay for login left */
+.imh-login-overlay {
+    background: linear-gradient(180deg, rgba(5,10,24,0.75) 0%, rgba(5,10,24,0.92) 100%);
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
+/* Micro dot */
+.imh-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--imh-primary); display: inline-block; }
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+.imh-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    font-size: 11px;
+    color: var(--imh-sub);
 }
