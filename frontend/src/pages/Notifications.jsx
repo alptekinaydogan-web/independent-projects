@@ -88,7 +88,7 @@ export default function Notifications() {
         </div>
 
         {items.length === 0 ? (
-          <div className="imh-card p-16 text-center">
+          <div className="imh-card p-16 text-center" data-testid="notif-empty">
             <Sparkles size={20} className="mx-auto mb-3 text-[#A1A1AA]" />
             <div className="font-editorial text-2xl">You're all caught up</div>
             <div className="text-sm text-[#52525B] mt-2">Meaningful events land here — proposal decisions, sponsorship activity, and administrator actions affecting you.</div>

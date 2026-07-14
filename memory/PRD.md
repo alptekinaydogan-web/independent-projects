@@ -25,14 +25,16 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Proposals reviewed by admin only.
 
 ## What's Implemented (Feb 2026)
-- **Auth**: login, /me, logout, forgot/reset password. Bcrypt, JWT (8h access + 7d refresh), httpOnly SameSite=None cookies + Bearer header. Password reset uses timezone-aware token expiry check and invalidates all outstanding tokens on successful reset.
-- **Resend email integration** (`/app/backend/server.py::send_password_reset_email`) — configurable via `RESEND_API_KEY` and `RESEND_FROM_EMAIL` env vars. Falls back to logging the link when key is empty (sandbox mode).
-- **Multi-role admins**: `owner` (root, seeded, manages other admins) + `admin` (full access minus admin management) + `representative`. Owner-only endpoints: `GET/POST/DELETE /api/owner/admins`.
-- **Audit log**: All state-changing actions written to `db.audit_log` via `audit()` helper. Endpoint `GET /api/admin/audit-log?entity_type=&actor_role=&limit=`. Frontend at `/admin/audit-log`.
-- **Admin console**: dashboard w/ metrics + revenue chart + top countries; Representatives CRUD w/ suspend + password reset; Banner Inventory (48 countries × 7 regions) CPM editor; TV Projects list with **status filter (all/active/draft/closed)** and **per-card status dropdown** (Set active / Draft / Close); Proposals review; Global Reports; **Audit Log**; **Administrators** (owner-only).
-- **Rep console**: dashboard w/ revenue metrics + featured TV; Banner Campaign Builder with **cinematic 2D world map** (react-simple-maps + d3-geo, world-atlas topojson) + **region-list tab** + **per-country impressions override panel**; Campaign list; TV Sponsorship Catalog + Editorial project page w/ hero + demo video modal + episode grid picker + sticky sponsorship checkout; Sponsorships list; Submit TV Proposal + track status; Rep Reports.
-- **TV Project status**: draft/active/closed. Reps only see active projects. Admins can quick-toggle status.
-- **Seed data**: 1 owner + 2 sample representatives (FR, GB) + 48 countries with regional default CPM + 3 sample TV projects.
+- **Modular backend architecture**: server.py is now a ~60-line orchestrator. Domain logic lives in `/app/backend/core.py` + `security.py` + `models.py` + `audit_helper.py` + `email_service.py` + `storage.py` + `notifications.py` + `countries_data.py` + `seed.py` + 11 focused routers under `/app/backend/routers/`.
+- **Notification Center** — role-aware, non-noisy. Wired into: proposal submitted / approved / rejected / in-review, campaign booked, sponsorship confirmed, TV project launched / reopened / closed, and administrator actions affecting a rep (suspend, reactivate, admin-triggered password reset). Endpoints: `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/{id}/read`, `POST /api/notifications/mark-all-read`. Frontend: bell + unread badge + dropdown panel in the sidebar, plus dedicated `/admin/notifications` and `/rep/notifications` pages with all/unread filters.
+- **Auth**: login, /me, logout, forgot/reset password. Bcrypt, JWT, httpOnly cookies + Bearer fallback. Reset flow is tz-aware and invalidates all outstanding tokens on success.
+- **Resend email** (`/app/backend/email_service.py`) — 100% env-var driven: `RESEND_API_KEY` + `RESEND_FROM_EMAIL`. Empty key → logs the reset link locally. Set a production key + verified sender at deploy time, no code changes required.
+- **Multi-role admins**: `owner` + `admin` + `representative`. Owner-only endpoints under `/api/owner/admins`.
+- **Audit log** at `GET /api/admin/audit-log` — every state-changing action recorded.
+- **Admin console**: dashboard w/ metrics + revenue chart + top countries; Representatives CRUD w/ suspend + password reset; Banner Inventory (48 countries × 7 regions) CPM editor; TV Projects list with status filter + per-card status dropdown (active/draft/closed); Proposals review; Global Reports; **Audit Log**; **Administrators** (owner-only); **Notifications**.
+- **Rep console**: dashboard; **cinematic 2D world map** + region list + per-country impressions override in campaign builder; Campaigns list; TV Sponsorship Catalog + editorial project pages; Sponsorships list; TV proposal submission; Reports; **Notifications**.
+- **TV Project status**: draft/active/closed. Reps only see active projects. New sponsorships blocked on non-active projects.
+- **Seed data**: 1 owner + 2 sample reps + 48 countries with regional CPM + 3 sample TV projects.
 
 ## Prioritized Backlog
 ### P1 (post-first-finish)
