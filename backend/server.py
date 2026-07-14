@@ -392,11 +392,16 @@ async def reset_password(body: ResetPwBody):
     rec = await db.password_reset_tokens.find_one({"token": body.token, "used": False})
     if not rec:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
-    if rec["expires_at"] < datetime.now(timezone.utc):
+    exp = rec["expires_at"]
+    if getattr(exp, "tzinfo", None) is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Token expired")
     await db.users.update_one({"id": rec["user_id"]},
                               {"$set": {"password_hash": hash_password(body.new_password)}})
-    await db.password_reset_tokens.update_one({"token": body.token}, {"$set": {"used": True}})
+    await db.password_reset_tokens.update_many(
+        {"user_id": rec["user_id"], "used": False},
+        {"$set": {"used": True}})
     return {"ok": True}
 
 
@@ -489,15 +494,19 @@ async def create_campaign(body: CampaignCreate, user: dict = Depends(require_rep
     inv = {i["country_code"]: i async for i in db.banner_inventory.find({"country_code": {"$in": [c.upper() for c in body.country_codes]}})}
     if len(inv) != len(body.country_codes):
         raise HTTPException(status_code=400, detail="One or more selected countries have no inventory")
-    # internal cost = sum of CPM * impressions/1000 per country
     per_country = []
     total_internal = 0.0
+    total_impressions = 0
+    overrides = body.per_country_impressions or {}
     for c in body.country_codes:
         row = inv[c.upper()]
-        cost = round(row["price_cpm_usd"] * body.impressions / 1000.0, 2)
+        imp = int(overrides.get(c.upper(), body.impressions))
+        cost = round(row["price_cpm_usd"] * imp / 1000.0, 2)
         per_country.append({"country_code": c.upper(), "country_name": row["country_name"],
-                            "price_cpm_usd": row["price_cpm_usd"], "internal_cost": cost})
+                            "price_cpm_usd": row["price_cpm_usd"], "impressions": imp,
+                            "internal_cost": cost})
         total_internal += cost
+        total_impressions += imp
     campaign = {
         "id": str(uuid.uuid4()), "rep_id": user["id"], "rep_name": user["name"],
         "agency_name": user.get("agency_name", ""),
@@ -505,6 +514,7 @@ async def create_campaign(body: CampaignCreate, user: dict = Depends(require_rep
         "country_codes": [c.upper() for c in body.country_codes],
         "per_country": per_country,
         "impressions": body.impressions,
+        "total_impressions": total_impressions,
         "internal_cost_usd": round(total_internal, 2),
         "client_total_price_usd": body.client_total_price,
         "margin_usd": round(body.client_total_price - total_internal, 2),
@@ -512,6 +522,12 @@ async def create_campaign(body: CampaignCreate, user: dict = Depends(require_rep
         "created_at": now_iso(),
     }
     await db.campaigns.insert_one(campaign)
+    await audit(user, "campaign.create", "campaign", campaign["id"], {
+        "campaign_name": campaign["campaign_name"], "client_name": campaign["client_name"],
+        "countries": len(campaign["country_codes"]),
+        "internal_cost_usd": campaign["internal_cost_usd"],
+        "client_total_price_usd": campaign["client_total_price_usd"],
+    })
     campaign.pop("_id", None)
     return campaign
 

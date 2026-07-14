@@ -4,7 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, ShieldCheck, Trash2 } from "lucide-react";
 
@@ -50,7 +50,10 @@ export default function Admins() {
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-none border border-[#0A0A0A]">
-              <DialogHeader><DialogTitle className="font-editorial text-2xl">Invite an administrator</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="font-editorial text-2xl">Invite an administrator</DialogTitle>
+                <DialogDescription>Create a new administrator account with full access to manage the platform.</DialogDescription>
+              </DialogHeader>
               <div className="grid grid-cols-1 gap-4 mt-2">
                 <F label="Full name"><Input data-testid="admin-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></F>
                 <F label="Email"><Input data-testid="admin-email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></F>

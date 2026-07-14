@@ -366,6 +366,33 @@ class TestPerCountry:
         assert pc_map.get("FR") == 150000
         assert pc_map.get("DE") == 50000
 
+    def test_campaign_with_overrides_full(self, rep_session):
+        """Regression #2: default fill for country not in overrides + total_impressions + internal_cost math."""
+        s, _ = rep_session
+        # Fetch prices to compute expected internal cost
+        inv = {i["country_code"]: i["price_cpm_usd"] for i in s.get(f"{API}/banner-inventory", timeout=15).json()}
+        payload = {
+            "campaign_name": "TEST PerCountry Full",
+            "client_name": "TEST Client PCF",
+            "country_codes": ["FR", "DE", "GB"],
+            "impressions": 100000,
+            "client_total_price": 20000.0,
+            "per_country_impressions": {"FR": 150000, "DE": 50000},
+        }
+        r = s.post(f"{API}/campaigns", json=payload, timeout=15)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        pc_map = {p["country_code"]: p["impressions"] for p in d["per_country"]}
+        assert pc_map == {"FR": 150000, "DE": 50000, "GB": 100000}, pc_map
+        assert d.get("total_impressions") == 300000, d
+        expected_cost = round(
+            (150000 / 1000.0) * inv["FR"]
+            + (50000 / 1000.0) * inv["DE"]
+            + (100000 / 1000.0) * inv["GB"],
+            2,
+        )
+        assert d["internal_cost_usd"] == expected_cost, (d["internal_cost_usd"], expected_cost)
+
 
 # ---------- P1/P2: Audit Log ----------
 class TestAuditLog:
@@ -373,10 +400,12 @@ class TestAuditLog:
         s, _ = admin_session
         sr, _ = rep_session
         # Seed some events in this test to avoid xdist ordering flakiness
-        sr.post(f"{API}/campaigns", json={
+        cr = sr.post(f"{API}/campaigns", json={
             "campaign_name": "TEST Audit", "client_name": "TEST",
             "country_codes": ["FR"], "impressions": 10000, "client_total_price": 500.0
         }, timeout=15)
+        assert cr.status_code == 200
+        seeded_camp_id = cr.json()["id"]
         pid = s.get(f"{API}/tv-projects?status=active", timeout=15).json()[0]["id"]
         s.patch(f"{API}/admin/tv-projects/{pid}/status", json={"status": "active"}, timeout=15)
         s.put(f"{API}/admin/banner-inventory/FR", json={
@@ -392,6 +421,9 @@ class TestAuditLog:
         assert any(a.startswith("campaign.create") for a in actions), f"no campaign.create in {actions}"
         assert any(a.startswith("tv_project.status.") for a in actions), f"no tv_project.status in {actions}"
         assert "inventory.update" in actions
+        # Regression #1: audit entry must reference the seeded campaign ID
+        camp_entries = [i for i in items if i["action"] == "campaign.create" and i.get("entity_id") == seeded_camp_id]
+        assert camp_entries, f"campaign.create for {seeded_camp_id} not found. actions={actions}"
         # entry structure
         e = items[0]
         assert "action" in e and "entity_type" in e and "actor_role" in e and "created_at" in e
@@ -426,30 +458,48 @@ class TestPasswordReset:
         rid = cr.json()["id"]
 
         try:
-            r = requests.post(f"{API}/auth/forgot-password", json={"email": payload["email"]}, timeout=15)
+            # Request TWO tokens (older + newer) for THIS specific user.
+            # Grep by email to avoid picking up stale tokens from prior test runs.
+            import subprocess, re, time
+            email = payload["email"]
+            grep_cmd = (
+                "grep -h 'PASSWORD RESET' /var/log/supervisor/backend.*.log "
+                f"| grep -F 'link for {email}:' | tail -20"
+            )
+
+            r_old = requests.post(f"{API}/auth/forgot-password", json={"email": email}, timeout=15)
+            assert r_old.status_code == 200
+            time.sleep(1.5)
+            out_old = subprocess.run(["bash", "-lc", grep_cmd], capture_output=True, text=True, timeout=10).stdout
+            tokens_old = re.findall(r"token=([A-Za-z0-9_\-]+)", out_old)
+            assert tokens_old, f"first token not found in logs for {email}. tail=\n{out_old[-500:]}"
+            token_old = tokens_old[-1]
+
+            r = requests.post(f"{API}/auth/forgot-password", json={"email": email}, timeout=15)
             assert r.status_code == 200
             assert r.json().get("ok") is True
+            time.sleep(1.5)
 
-            # grab token from log
-            import subprocess, re
-            out = subprocess.run(
-                ["bash", "-lc",
-                 "grep -h 'PASSWORD RESET\\|reset link' /var/log/supervisor/backend.*.log | tail -50"],
-                capture_output=True, text=True, timeout=10
-            ).stdout
-            # token is in URL: /reset-password?token=<hex>
-            m = re.search(r"token=([A-Za-z0-9_\-]+)", out)
-            assert m, f"reset token not found in backend logs. tail=\n{out[-1000:]}"
-            token = m.group(1)
+            out = subprocess.run(["bash", "-lc", grep_cmd], capture_output=True, text=True, timeout=10).stdout
+            tokens = re.findall(r"token=([A-Za-z0-9_\-]+)", out)
+            assert tokens, f"reset tokens not found in backend logs for {email}. tail=\n{out[-1000:]}"
+            token = tokens[-1]
+            assert token != token_old, f"expected two distinct tokens, got same twice: {token}"
 
             r2 = requests.post(f"{API}/auth/reset-password",
                                json={"token": token, "new_password": "NewReset2026!"}, timeout=15)
             assert r2.status_code == 200, r2.text
+            assert r2.json().get("ok") is True
 
             # login with new password
             r3 = requests.post(f"{API}/auth/login",
-                               json={"email": payload["email"], "password": "NewReset2026!"}, timeout=15)
+                               json={"email": email, "password": "NewReset2026!"}, timeout=15)
             assert r3.status_code == 200
+
+            # Regression #3: older token must now be invalidated
+            r4 = requests.post(f"{API}/auth/reset-password",
+                               json={"token": token_old, "new_password": "AnotherPass2026!"}, timeout=15)
+            assert r4.status_code == 400, f"expected 400 for old token, got {r4.status_code}: {r4.text}"
         finally:
             s_owner.delete(f"{API}/admin/representatives/{rid}", timeout=15)
 
