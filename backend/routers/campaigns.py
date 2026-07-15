@@ -20,6 +20,9 @@ from audit_helper import audit
 from notifications import notify, notify_all_admins
 from networks_data import all_inventory
 from proposal_history import history_entry, strip_internal_notes, resolve_feedback
+from proposal_pdf import generate_proposal_pdf
+from fastapi.responses import StreamingResponse
+import io
 
 router = APIRouter(prefix="/campaigns", tags=["banner-proposals"])
 
@@ -317,3 +320,30 @@ async def unarchive_banner_proposal(proposal_id: str,
     await audit(admin, "proposal.banner.unarchived", "campaign", proposal_id, {})
     updated = await db.campaigns.find_one({"id": proposal_id})
     return _finalize(updated, admin)
+
+
+@router.get("/{proposal_id}/proposal.pdf")
+async def download_banner_proposal_pdf(proposal_id: str,
+                                        user: dict = Depends(get_current_user)):
+    """Premium sales-quality proposal PDF for approved banner campaigns.
+
+    Available to the owning representative and administrators once the proposal
+    has been approved.
+    """
+    doc = await db.campaigns.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if user["role"] not in ADMIN_ROLES and doc.get("rep_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if doc.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="Proposal PDF is only available after approval")
+
+    doc.pop("_id", None)
+    if user["role"] not in ADMIN_ROLES:
+        doc = strip_internal_notes(doc)  # never leak internal notes into the PDF for reps
+
+    pdf_bytes = generate_proposal_pdf(doc)
+    ref = (doc.get("id") or "")[:8]
+    filename = f"IMN-proposal-{ref}.pdf"
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf",
+                              headers={"Content-Disposition": f'inline; filename="{filename}"'})

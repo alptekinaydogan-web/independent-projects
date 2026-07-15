@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 8 verified. Backend pytest: 12/12 PASS (/app/backend/tests/test_iteration8.py) — banner + sponsorship PDF endpoints return 200 application/pdf with %PDF- magic and %%EOF near end, Content-Disposition 'inline; filename=IMN-proposal-*.pdf' / 'IMN-sponsorship-*.pdf', 403 for non-owning rep, 400 for non-approved, 404 for unknown id, admin can download both, and PDF body does NOT contain the internal_notes marker for reps (grep-tested with a unique secret string in internal notes). Sponsorship duplicate with episode_numbers override returns 200 status=revised parent_proposal_id set and new episode list; 409 when a chosen episode is already approved by ANOTHER rep on the same project; empty episode_numbers -> 400 (per code path). Frontend: /rep/banners shows 43 proposal-pdf-{id} green buttons on approved rows; /rep/sponsorships shows 20 sp-pdf-{id} buttons and PDF download succeeded with 200 application/pdf and valid magic; DUPLICATE & REVISE opens dialog with dup-episode-picker rendering 24 cells (dup-episode-{n}), counter dup-episode-count updates on toggle (verified 1->0), locked/available/selected states styled per spec. /admin/proposals-review approved chip shows 45 admin-pdf-{id} buttons; click triggered GET .../proposal.pdf 200 application/pdf %%EOF present.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/proposals-review PDF download", "issues": ["Client-side download rename produces filename 'IMN-banner-{id}.pdf' rather than server-provided 'IMN-proposal-{id}.pdf'. Server contract is correct per Content-Disposition; only the browser Save-As name differs. Minor cosmetic inconsistency, not a contract violation."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration8.py",
+    "/app/test_reports/pytest/iteration8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PDF endpoints correctly enforce role gating: admin OR owning rep; status must be 'approved' else 400.",
+    "strip_internal_notes(doc) is applied BEFORE calling generate_proposal_pdf for reps in both banner and sponsorship routes — verified by embedding a unique SECRET marker in admin's internal_notes then confirming the raw PDF bytes do not contain either the marker or the literal string 'internal_notes'.",
+    "Sponsorship duplicate correctly excludes parent's own approved episodes from the 'taken' set (via id: {$ne: parent['id']}), matching the UI lockedEpisodes derivation that excludes parent.episode_numbers — so a rep can always keep or re-select their own episodes.",
+    "Duplicate 'empty list' path: pick() treats [] as not-None so it becomes episodes=[]; then 'if not episodes' -> 400. This is correct and consistent with UI-side guard toast.error 'Select at least one episode'.",
+    "PDF generator (proposal_pdf.py) is well-partitioned — cover/intro/inventory-or-project/selection/commercials/approval pages. All coordinates use MARGIN/CONTENT_W constants; long titles are wrapped via _draw_wrapped_title. Output verified as valid multi-page A4 (~7-9KB per doc).",
+    "Minor: admin ProposalsReview.jsx downloadPdf helper appears to rename the blob file to 'IMN-banner-{id}.pdf' before saving. Non-blocking; the server Content-Disposition (which is what the spec constrains) is IMN-proposal-*.pdf."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration8.py (new)"],
+  "success_rate": { "backend": "100% (12/12 pytest)", "frontend": "100% — PDF buttons render on approved rows for both rep tables and admin review, downloads produce valid application/pdf with %PDF-/%%EOF envelope, duplicate dialog episode picker renders correct grid and counter updates on toggle" },
+  "test_credentials": "Admin: admin@independentmedia.hub / Admin2026! ; Rep1: victor.laurent@parismedia.fr / Rep2026! ; Rep2: amelia.hart@londonhouse.co.uk / Rep2026!",
+  "seed_data_creation": "Several TEST_it8_* banners and sponsorships plus their approvals were created during pytest — safe leftovers, matches iteration 6/7 cleanup pattern.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 8 test file at /app/backend/tests/test_iteration8.py uses REACT_APP_BACKEND_URL from frontend/.env. pytest.ini uses xdist (2 workers, loadscope). Active TV project fixture picks one with >=12 free episodes to avoid parallel-worker collision — episodes remaining is finite so pick a fresh project detail each test. PDF endpoints: GET /api/campaigns/{id}/proposal.pdf and GET /api/sponsorships/{id}/proposal.pdf both StreamingResponse. Sponsorship duplicate accepts episode_numbers override; excludes parent's own episodes from conflict set.",
+  "rca of the issue": "N/A — no defects. All Iteration 8 acceptance criteria satisfied."
+}

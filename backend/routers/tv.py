@@ -20,6 +20,9 @@ from security import get_current_user, require_admin, require_rep
 from audit_helper import audit
 from notifications import notify, notify_all_admins, notify_all_active_reps
 from proposal_history import history_entry, strip_internal_notes, resolve_feedback
+from proposal_pdf import generate_proposal_pdf
+from fastapi.responses import StreamingResponse
+import io
 
 router = APIRouter(tags=["tv"])
 
@@ -413,3 +416,30 @@ async def unarchive_sponsorship(proposal_id: str, admin: dict = Depends(require_
     await audit(admin, "proposal.sponsorship.unarchived", "sponsorship", proposal_id, {})
     updated = await db.sponsorships.find_one({"id": proposal_id})
     return _finalize_sponsorship(updated, admin)
+
+
+@router.get("/sponsorships/{proposal_id}/proposal.pdf")
+async def download_sponsorship_proposal_pdf(proposal_id: str,
+                                             user: dict = Depends(get_current_user)):
+    """Premium sales-quality proposal PDF for approved TV sponsorships."""
+    doc = await db.sponsorships.find_one({"id": proposal_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    if user["role"] not in ADMIN_ROLES and doc.get("rep_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if doc.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="Proposal PDF is only available after approval")
+
+    tv = await db.tv_projects.find_one({"id": doc.get("tv_project_id")})
+    if tv:
+        tv.pop("_id", None)
+
+    doc.pop("_id", None)
+    if user["role"] not in ADMIN_ROLES:
+        doc = strip_internal_notes(doc)
+
+    pdf_bytes = generate_proposal_pdf(doc, tv_project=tv)
+    ref = (doc.get("id") or "")[:8]
+    filename = f"IMN-sponsorship-{ref}.pdf"
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf",
+                              headers={"Content-Disposition": f'inline; filename="{filename}"'})

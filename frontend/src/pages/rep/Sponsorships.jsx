@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import ProposalHistoryDrawer from "@/components/ProposalHistoryDrawer";
 import DuplicateProposalDialog from "@/components/DuplicateProposalDialog";
-import { Copy, History } from "lucide-react";
+import { Copy, History, FileDown } from "lucide-react";
 
 const STATUS_STYLE = {
   pending_review:     { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
@@ -22,6 +22,16 @@ export default function Sponsorships() {
 
   const load = () => api.get("/sponsorships").then(r => setItems(r.data));
   useEffect(() => { load(); }, []);
+
+  const downloadPdf = async (e, id) => {
+    e.preventDefault();
+    const r = await api.get(`/sponsorships/${id}/proposal.pdf`, { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `IMN-sponsorship-${id.slice(0, 8)}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div>
@@ -66,6 +76,14 @@ export default function Sponsorships() {
                           style={{ transition: "border-color 120ms" }}>
                           <History size={12} /> History
                         </button>
+                        {s.status === "approved" && (
+                          <a href="#" onClick={(e) => downloadPdf(e, s.id)}
+                             data-testid={`sp-pdf-${s.id}`}
+                             className="h-8 px-2 border border-[#166534] text-[#166534] hover:bg-[#166534] hover:text-white text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
+                             style={{ transition: "background 120ms, color 120ms" }}>
+                            <FileDown size={12} /> Proposal PDF
+                          </a>
+                        )}
                         {canDuplicate && (
                           <button onClick={() => setDuplicateOf(s)}
                             data-testid={`sp-duplicate-${s.id}`}

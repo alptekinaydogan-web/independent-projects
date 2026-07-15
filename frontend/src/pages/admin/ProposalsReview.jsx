@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import ProposalHistoryDrawer from "@/components/ProposalHistoryDrawer";
-import { Archive, ArchiveRestore, History } from "lucide-react";
+import { Archive, ArchiveRestore, History, FileDown } from "lucide-react";
 
 const STATUS_STYLE = {
   pending_review:     { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
@@ -83,6 +83,18 @@ export default function ProposalsReview() {
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
 
+  const downloadPdf = async (kind, id) => {
+    const path = kind === "banner" ? `/campaigns/${id}/proposal.pdf` : `/sponsorships/${id}/proposal.pdf`;
+    try {
+      const r = await api.get(path, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = `IMN-${kind}-${id.slice(0, 8)}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
   const filterFn = (i) => {
     if (filter === "all") return true;
     if (filter === "pending") return PENDING.has(i.status) && !i.is_archived;
@@ -123,7 +135,8 @@ export default function ProposalsReview() {
                           internal={internal} setInternal={setInternal}
                           onDecide={decideBanner} onArchive={(id) => archive("banner", id)}
                           onUnarchive={(id) => unarchive("banner", id)}
-                          onHistory={setHistoryOf} />
+                          onHistory={setHistoryOf}
+                          onDownloadPdf={(id) => downloadPdf("banner", id)} />
           </TabsContent>
           <TabsContent value="tv" className="mt-4">
             <ProposalList items={tv.filter(filterFn)} kind="tv"
@@ -131,7 +144,8 @@ export default function ProposalsReview() {
                           internal={internal} setInternal={setInternal}
                           onDecide={decideTV} onArchive={(id) => archive("tv", id)}
                           onUnarchive={(id) => unarchive("tv", id)}
-                          onHistory={setHistoryOf} />
+                          onHistory={setHistoryOf}
+                          onDownloadPdf={(id) => downloadPdf("tv", id)} />
           </TabsContent>
         </Tabs>
       </div>
@@ -143,7 +157,7 @@ export default function ProposalsReview() {
 }
 
 function ProposalList({ items, kind, feedback, setFeedback, internal, setInternal,
-                        onDecide, onArchive, onUnarchive, onHistory }) {
+                        onDecide, onArchive, onUnarchive, onHistory, onDownloadPdf }) {
   if (items.length === 0) return <div className="imh-card p-16 text-center text-[#52525B]">Nothing to review here.</div>;
   return (
     <div className="space-y-4">
@@ -188,12 +202,19 @@ function ProposalList({ items, kind, feedback, setFeedback, internal, setInterna
                   </div>
                 )}
 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 flex gap-2 flex-wrap">
                   <button onClick={() => onHistory(p)} data-testid={`admin-history-${p.id}`}
                           className="h-8 px-3 border border-[#E4E4E1] hover:border-[#0A0A0A] text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
                           style={{ transition: "border-color 120ms" }}>
                     <History size={12} /> Lifecycle history
                   </button>
+                  {p.status === "approved" && (
+                    <button onClick={() => onDownloadPdf(p.id)} data-testid={`admin-pdf-${p.id}`}
+                            className="h-8 px-3 border border-[#166534] text-[#166534] hover:bg-[#166534] hover:text-white text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
+                            style={{ transition: "background 120ms, color 120ms" }}>
+                      <FileDown size={12} /> Proposal PDF
+                    </button>
+                  )}
                   {p.is_archived ? (
                     <button onClick={() => onUnarchive(p.id)} data-testid={`admin-unarchive-${p.id}`}
                             className="h-8 px-3 border border-[#E4E4E1] hover:border-[#0A0A0A] text-[11px] uppercase tracking-widest inline-flex items-center gap-1"

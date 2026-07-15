@@ -5,7 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import ProposalHistoryDrawer from "@/components/ProposalHistoryDrawer";
 import DuplicateProposalDialog from "@/components/DuplicateProposalDialog";
-import { Plus, Copy, History } from "lucide-react";
+import { Plus, Copy, History, FileDown } from "lucide-react";
 
 const STATUS_STYLE = {
   pending_review:     { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
@@ -102,6 +102,16 @@ export default function BannerProposals() {
                           style={{ transition: "border-color 120ms" }}>
                           <History size={12} /> History
                         </button>
+                        {c.status === "approved" && (
+                          <a href={`${process.env.REACT_APP_BACKEND_URL}/api/campaigns/${c.id}/proposal.pdf`}
+                             target="_blank" rel="noreferrer"
+                             onClick={(e) => downloadPdf(e, `/campaigns/${c.id}/proposal.pdf`, `IMN-proposal-${c.id.slice(0,8)}.pdf`)}
+                             data-testid={`proposal-pdf-${c.id}`}
+                             className="h-8 px-2 border border-[#166534] text-[#166534] hover:bg-[#166534] hover:text-white text-[11px] uppercase tracking-widest inline-flex items-center gap-1"
+                             style={{ transition: "background 120ms, color 120ms" }}>
+                            <FileDown size={12} /> Proposal PDF
+                          </a>
+                        )}
                         {canDuplicate && (
                           <button onClick={() => setDuplicateOf(c)}
                             data-testid={`proposal-duplicate-${c.id}`}
