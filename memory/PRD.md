@@ -24,6 +24,11 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 10)
+- **Audit-log action filter** — `GET /api/admin/audit-log` now accepts an `action` query parameter. Supports both exact match (e.g. `action=proposal.banner.approved`) and wildcard prefix match with a trailing asterisk (e.g. `action=proposal.banner.*`). Regex metacharacters are escaped so the prefix is interpreted literally. Composes cleanly with the existing `entity_type` and `actor_role` filters.
+- **Tracked background-task registry** — new `background_tasks.py` module exposes `spawn(coro, name=...)` which schedules a coroutine on the event loop AND holds a strong reference until it completes (preventing garbage-collector cancellation) via a module-level `set()`. Every previously-fire-and-forget `asyncio.create_task(...)` call in the codebase (banner + sponsorship approval-email helpers) now uses `spawn()`.
+- **Graceful shutdown** — `server.py::shutdown()` now `await`s `drain_background_tasks(timeout=10.0)` before closing the Mongo client, so any in-flight approved-proposal email delivery completes rather than being cancelled mid-flight.
+
 ## What's Implemented (Feb 2026 · Iteration 9)
 - **Automatic proposal PDF email on approval** — when an admin approves any commercial proposal (banner or TV sponsorship), a fire-and-forget background task builds the branded PDF, base64-encodes it, and delivers it as an attachment to the owning representative via Resend. Uses the rep-facing view (internal notes already stripped) so the document is safe to forward to the customer. Never blocks the approval response.
 - **Audit trail for delivery** — every attempted send writes an entry to `audit_log`: action `proposal.{banner|sponsorship}.pdf_emailed` on success, `..pdf_email_failed` on any upstream failure (dev-mode empty API key, Resend error, missing user record). Details record `to`, `ok`, `pdf_bytes`.

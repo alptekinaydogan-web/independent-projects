@@ -22,8 +22,8 @@ from networks_data import all_inventory
 from proposal_history import history_entry, strip_internal_notes, resolve_feedback
 from proposal_pdf import generate_proposal_pdf
 from email_service import send_approved_proposal_email
+from background_tasks import spawn
 from fastapi.responses import StreamingResponse
-import asyncio
 import io
 
 router = APIRouter(prefix="/campaigns", tags=["banner-proposals"])
@@ -225,7 +225,8 @@ async def decide_banner_proposal(proposal_id: str, body: ProposalDecisionBody,
 
     # On approval, deliver the branded proposal PDF to the owning rep.
     if body.decision == "approved":
-        asyncio.create_task(_deliver_banner_approval_email(updated, admin))
+        spawn(_deliver_banner_approval_email(updated, admin),
+              name=f"banner-approval-email:{proposal_id}")
     return _finalize(updated, admin)
 
 

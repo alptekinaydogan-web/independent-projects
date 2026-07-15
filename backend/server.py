@@ -10,6 +10,7 @@ from core import CORS_ORIGINS, client, logger
 from storage import init_storage
 from seed import run_seed
 from scheduler import start_scheduler, run_once
+from background_tasks import drain as drain_background_tasks
 
 # Routers
 from routers.auth import router as auth_router
@@ -59,4 +60,7 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    # Await outstanding fire-and-forget tasks (e.g. approval emails) so we
+    # don't cancel an in-flight Resend delivery.
+    await drain_background_tasks(timeout=10.0)
     client.close()
