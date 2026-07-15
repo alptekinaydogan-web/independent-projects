@@ -1,0 +1,20 @@
+{
+  "summary": "Iteration 13 — full backend + frontend testing of the demo-seed environment. 14/14 pytest tests passed (100%). All acceptance criteria from the review request are met: owner-only seed endpoint, role gating (rep=403, unauth=401), idempotent re-run (wiped counts on 2nd run == created counts of 1st), banner and sponsorship proposals span all 6 lifecycle statuses, reports.overview populated (banner+TV totals >0, monthly_series 6 rows, top_networks 6 items, all_pending_review>0), notifications fan-out to both admin and rep with at least one action_required/unread per role, audit log >40 entries and spans multiple banner lifecycle actions (submitted/approved/revised/revision_requested/rejected). Rep-facing /api/campaigns and /api/sponsorships both non-empty and internal_notes fully stripped at top-level and in every history entry (verified via recursive walk). Amelia (legacy rep) is is_active=false in /api/admin/representatives and her login returns 401. UI: owner dashboard shows Reseed demo data button (data-testid=demo-reseed-btn) + full System Vitals card (DB Connected 0.36ms, Queue 0, Dev fallback, Uptime>0). Rep view has NO reseed button. /rep/banners renders full table with approved rows showing PROPOSAL PDF, revision_requested showing DUPLICATE & REVISE + HISTORY. /rep/sponsorships same. Rep redirected away from /admin (→ /rep).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration13_demo_seed.py", "/app/test_reports/pytest/iteration13.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.py rejects inactive users at login with 401, so 'authentication surface still works' phrasing in the review request is slightly misleading — Amelia cannot actually log in post-seed. If future QA needs Amelia to authenticate-then-be-blocked-downstream instead, a UX distinction between 'invalid credentials' and 'account disabled' would help. Current behavior matches security best practice, though.",
+    "/api/notifications returns a bare list (not paginated). Fine for demo scale (~11 items) but may need pagination for production.",
+    "demo_seed.py hardcodes DEMO_REP_EMAIL and NOTIF_FIXTURES — acceptable for a QA fixture module. Consider gating the router behind ENVIRONMENT != 'production' as an extra safety net (currently only require_owner guards it)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration13_demo_seed.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% of tested flows"},
+  "test_credentials": "admin@independentmedia.hub / Admin2026! (owner); victor.laurent@parismedia.fr / Rep2026! (active rep); amelia.hart@londonhouse.co.uk / Rep2026! (inactive after seed → 401)",
+  "seed_data_creation": "Called POST /api/admin/demo/seed during test setup — wipes db.campaigns, db.sponsorships, db.notifications, db.audit_log, db.proposals and rebuilds. 17 banners + 11 sponsorships + 11 notifications + 54 audit entries. Users, tv_projects, inventory catalog preserved.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 13 built /api/admin/demo/seed as an idempotent QA fixture loader. The seed writes proposals whose history[] entries embed internal_notes for owner actors, and the rep-facing endpoints must strip these via proposal_history.strip_internal_notes (already correctly wired in campaigns.py and sponsorships.py). If future tests add new fields carrying admin-only content, extend strip_internal_notes accordingly. Note: pytest.ini uses -n auto (pytest-xdist) which needed the -o addopts= override; alternatively pass -p no:xdist. REACT_APP_BACKEND_URL was not present in pytest env — the test file loads it from /app/frontend/.env directly.",
+  "rca of the issue": "N/A — no issues found."
+}

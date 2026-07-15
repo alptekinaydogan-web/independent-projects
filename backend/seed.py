@@ -104,11 +104,19 @@ async def seed_owner() -> None:
 
 
 async def seed_reps() -> None:
+    """The QA/demo environment operates with a single licensed representative
+    (Victor Laurent · Paris Media Group). A second rep record (Amelia Hart)
+    exists historically — we keep the row for referential integrity but mark
+    it inactive so the platform behaves as a one-representative environment
+    during the QA phase.
+    """
     samples = [
         {"email": "victor.laurent@parismedia.fr", "password": "Rep2026!",
-         "name": "Victor Laurent", "agency_name": "Paris Media Group", "country": "FR"},
+         "name": "Victor Laurent", "agency_name": "Paris Media Group", "country": "FR",
+         "is_active": True},
         {"email": "amelia.hart@londonhouse.co.uk", "password": "Rep2026!",
-         "name": "Amelia Hart", "agency_name": "London House Media", "country": "GB"},
+         "name": "Amelia Hart", "agency_name": "London House Media", "country": "GB",
+         "is_active": False},
     ]
     for r in samples:
         if not await db.users.find_one({"email": r["email"]}):
@@ -117,8 +125,11 @@ async def seed_reps() -> None:
                 "password_hash": hash_password(r["password"]),
                 "name": r["name"], "role": "representative",
                 "agency_name": r["agency_name"], "country": r["country"],
-                "is_active": True, "created_at": now_iso(),
+                "is_active": r["is_active"], "created_at": now_iso(),
             })
+        else:
+            await db.users.update_one({"email": r["email"]},
+                                       {"$set": {"is_active": r["is_active"]}})
 
 
 async def seed_tv_projects() -> None:
@@ -180,9 +191,11 @@ def write_credentials_file() -> None:
 - Password: `{ADMIN_PASSWORD}`
 - Role: `owner`
 
-## Representative accounts
+## Representative account (QA phase — single licensed representative)
 - Email: `victor.laurent@parismedia.fr`  Password: `Rep2026!`  Agency: Paris Media Group (FR)
-- Email: `amelia.hart@londonhouse.co.uk`  Password: `Rep2026!`  Agency: London House Media (GB)
+
+## Legacy accounts (kept inactive for referential integrity)
+- Email: `amelia.hart@londonhouse.co.uk`  Password: `Rep2026!`  Status: **inactive**
 """)
 
 

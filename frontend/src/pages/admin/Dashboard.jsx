@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import ActionableStrip from "@/components/ActionableStrip";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Activity, Database, Mail, Clock, CalendarClock } from "lucide-react";
+import { ArrowUpRight, Activity, Database, Mail, Clock, CalendarClock, DatabaseZap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 function Metric({ label, value, sub, testId, tone }) {
   const color = tone === "warning" ? "#B45309" : tone === "positive" ? "#166534" : tone === "danger" ? "#991B1B" : "#0A0A0A";
@@ -44,6 +46,7 @@ export default function AdminDashboard() {
         eyebrow="Administrator Overview"
         title={`Good day, ${user?.name?.split(" ")[0] || "Admin"}.`}
         description="Commercial activity across Independent Media Network. Review commercial proposals from representatives, monitor approved inventory, and manage editorial concepts."
+        actions={<OwnerOnlyReseedButton />}
       />
       <div className="px-10 py-10 space-y-8">
         <ActionableStrip base="/admin" />
@@ -77,6 +80,30 @@ export default function AdminDashboard() {
         <SystemVitals health={health} />
       </div>
     </div>
+  );
+}
+
+function OwnerOnlyReseedButton() {
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+  if (user?.role !== "owner") return null;
+  const reseed = async () => {
+    if (!window.confirm("Wipe all commercial data and repopulate the demo environment? Users and TV projects are preserved.")) return;
+    setBusy(true);
+    try {
+      const r = await api.post("/admin/demo/seed");
+      toast.success(`Demo environment ready — ${r.data.created.banner_proposals} banners, ${r.data.created.sponsorship_proposals} sponsorships, ${r.data.created.notifications} notifications.`);
+      // trigger a soft reload of surrounding data
+      setTimeout(() => window.location.reload(), 700);
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail));
+    } finally { setBusy(false); }
+  };
+  return (
+    <Button onClick={reseed} disabled={busy} data-testid="demo-reseed-btn"
+             variant="outline" className="rounded-none border-[#0033A0] text-[#0033A0] hover:bg-[#0033A0] hover:text-white h-9">
+      <DatabaseZap size={13} className="mr-2" /> {busy ? "Reseeding…" : "Reseed demo data"}
+    </Button>
   );
 }
 

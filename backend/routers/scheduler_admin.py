@@ -3,15 +3,18 @@
 Combines two utilities behind the same `/admin` prefix:
   - POST /admin/scheduler/run-campaign-reminders  → force the scheduler tick
   - GET  /admin/system/health                     → live operational vitals
+  - POST /admin/demo/seed                         → wipe + repopulate demo data
 """
 import time
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from core import db, CAMPAIGN_REMINDER_DAYS, PROPOSAL_ARCHIVE_DAYS, RESEND_API_KEY, RESEND_FROM_EMAIL
-from security import require_admin
+from security import require_admin, require_owner
 from scheduler import run_once
 from background_tasks import outstanding_count
+from demo_seed import seed_demo_environment
+from audit_helper import audit
 
 router = APIRouter(prefix="/admin", tags=["scheduler"])
 
@@ -70,3 +73,17 @@ async def system_health(_: dict = Depends(require_admin)):
             "proposal_archive_days":  PROPOSAL_ARCHIVE_DAYS,
         },
     }
+
+
+@router.post("/demo/seed")
+async def reseed_demo_environment(owner: dict = Depends(require_owner)):
+    """Owner-only: wipe commercial data and repopulate with a realistic demo
+    fixture covering every workflow. Preserves users, inventory catalog and
+    TV projects. Idempotent — safe to run repeatedly.
+    """
+    try:
+        summary = await seed_demo_environment()
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await audit(owner, "demo.seed", "system", "", summary)
+    return summary
