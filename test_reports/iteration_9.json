@@ -1,0 +1,19 @@
+{
+  "summary": "Iteration 9 backend testing complete. All 6 tests passed (100%) covering the auto-email approved proposal PDF flow via Resend (fire-and-forget). Verified: (a) banner + sponsorship approval each enqueue a background task that writes a proposal.<kind>.pdf_email_failed audit entry within ~1s (RESEND_API_KEY empty in dev — MOCKED fallback path is intentional per iteration 9 design), (b) /decision endpoint responds well under 3s despite PDF generation, (c) audit entries carry correct entity_id, entity_type, details.to=rep_email, details.pdf_bytes>5000 (~7217 bytes observed), (d) revision_requested and rejected decisions emit NO email audit entries, (e) the rep-facing PDF (which shares the strip_internal_notes path with the email helper) does not leak the SECRETXYZ_NOLEAK marker, (f) regression: duplicating a revision-requested proposal and approving the revised one emits a fresh pdf_email audit entry keyed to the new proposal id. Response time of /decision under 3s confirms asyncio.create_task properly detaches.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration9.py", "/app/test_reports/pytest/iteration9.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "audit_log GET endpoint documented (in review request) as supporting an 'action' filter param, but code only supports entity_type and actor_role. Tests worked around by client-side filtering. Consider adding an 'action' query param for O(1) polling by callers.",
+    "asyncio.create_task on the background email helper is not tracked; if the event loop shuts down mid-flight the task could be cancelled. Acceptable for fire-and-forget but worth noting for production hardening (e.g., store task refs or use BackgroundTasks)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "not tested (per request)"},
+  "test_credentials": "admin@independentmedia.hub / Admin2026!; victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "Test data prefixed with TEST_it9_ across campaigns and sponsorships collections. Not auto-cleaned (matches convention of prior iterations).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 9 wires automatic Resend delivery of the approved-proposal PDF via asyncio.create_task in /decision. With RESEND_API_KEY empty in dev, audit action is proposal.<kind>.pdf_email_failed (ok=False); with a real key the same code path emits pdf_emailed (ok=True) — both are treated identically by the audit helper. Recorded details.pdf_bytes observed ~7217 for banner, similar range for sponsorship. Do NOT patch email_service to require a key; empty-key fallback is intentional.",
+  "rca of the issue": "N/A — no issues found."
+}

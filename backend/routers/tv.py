@@ -12,7 +12,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from core import db, now_iso, ADMIN_ROLES
+from core import db, now_iso, ADMIN_ROLES, logger
 from models import (TVProjectCreate, TVProjectUpdate, TVProjectStatusUpdate,
                     TVProposalCreate, ProposalDecisionBody, ProposalArchiveBody,
                     ProposalDuplicateOverrides)
@@ -21,7 +21,9 @@ from audit_helper import audit
 from notifications import notify, notify_all_admins, notify_all_active_reps
 from proposal_history import history_entry, strip_internal_notes, resolve_feedback
 from proposal_pdf import generate_proposal_pdf
+from email_service import send_approved_proposal_email
 from fastapi.responses import StreamingResponse
+import asyncio
 import io
 
 router = APIRouter(tags=["tv"])
@@ -32,6 +34,29 @@ def _finalize_sponsorship(p: dict, user: dict) -> dict:
     if user["role"] not in ADMIN_ROLES:
         p = strip_internal_notes(p)
     return p
+
+
+async def _deliver_sponsorship_approval_email(proposal: dict, admin: dict) -> None:
+    """Background task: build the branded PDF and email it to the owning rep."""
+    rep_id = proposal.get("rep_id")
+    if not rep_id:
+        return
+    try:
+        rep = await db.users.find_one({"id": rep_id})
+        if not rep or not rep.get("email"):
+            return
+        tv = await db.tv_projects.find_one({"id": proposal.get("tv_project_id")})
+        if tv:
+            tv.pop("_id", None)
+        rep_view = strip_internal_notes({k: v for k, v in proposal.items() if k != "_id"})
+        pdf_bytes = generate_proposal_pdf(rep_view, tv_project=tv)
+        ok = await send_approved_proposal_email(rep["email"], rep.get("name", ""),
+                                                 "sponsorship", rep_view, pdf_bytes)
+        await audit(admin, "proposal.sponsorship.pdf_emailed" if ok else "proposal.sponsorship.pdf_email_failed",
+                    "sponsorship", proposal["id"], {"to": rep["email"], "ok": ok,
+                                                     "pdf_bytes": len(pdf_bytes)})
+    except Exception as e:
+        logger.error(f"[sponsorship approval email] {proposal.get('id')}: {e}")
 
 
 # ---------- TV Projects ----------
@@ -291,6 +316,11 @@ async def decide_sponsorship_proposal(proposal_id: str, body: ProposalDecisionBo
                  severity=meta["severity"])
 
     updated = await db.sponsorships.find_one({"id": proposal_id})
+
+    # On approval, deliver the branded proposal PDF to the owning rep.
+    if body.decision == "approved":
+        asyncio.create_task(_deliver_sponsorship_approval_email(updated, admin))
+
     return _finalize_sponsorship(updated, admin)
 
 

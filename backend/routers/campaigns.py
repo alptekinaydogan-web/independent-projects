@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
-from core import db, now_iso, ADMIN_ROLES
+from core import db, now_iso, ADMIN_ROLES, logger
 from models import BannerProposalCreate, ProposalDecisionBody, ProposalArchiveBody, ProposalDuplicateOverrides
 from security import get_current_user, require_admin, require_rep
 from audit_helper import audit
@@ -21,7 +21,9 @@ from notifications import notify, notify_all_admins
 from networks_data import all_inventory
 from proposal_history import history_entry, strip_internal_notes, resolve_feedback
 from proposal_pdf import generate_proposal_pdf
+from email_service import send_approved_proposal_email
 from fastapi.responses import StreamingResponse
+import asyncio
 import io
 
 router = APIRouter(prefix="/campaigns", tags=["banner-proposals"])
@@ -63,6 +65,30 @@ def _finalize(p: dict, user: dict) -> dict:
     if user["role"] not in ADMIN_ROLES:
         p = strip_internal_notes(p)
     return p
+
+
+async def _deliver_banner_approval_email(proposal: dict, admin: dict) -> None:
+    """Background task: build the branded PDF and email it to the owning rep.
+
+    Uses the rep-facing view of the proposal (internal notes stripped) so the
+    document mirrors what the rep can share with their customer.
+    """
+    rep_id = proposal.get("rep_id")
+    if not rep_id:
+        return
+    try:
+        rep = await db.users.find_one({"id": rep_id})
+        if not rep or not rep.get("email"):
+            return
+        rep_view = strip_internal_notes({k: v for k, v in proposal.items() if k != "_id"})
+        pdf_bytes = generate_proposal_pdf(rep_view)
+        ok = await send_approved_proposal_email(rep["email"], rep.get("name", ""),
+                                                 "banner", rep_view, pdf_bytes)
+        await audit(admin, "proposal.banner.pdf_emailed" if ok else "proposal.banner.pdf_email_failed",
+                    "campaign", proposal["id"], {"to": rep["email"], "ok": ok,
+                                                  "pdf_bytes": len(pdf_bytes)})
+    except Exception as e:  # never let a background failure crash anything
+        logger.error(f"[banner approval email] {proposal.get('id')}: {e}")
 
 
 @router.get("")
@@ -196,6 +222,10 @@ async def decide_banner_proposal(proposal_id: str, body: ProposalDecisionBody,
                  severity=meta["severity"])
 
     updated = await db.campaigns.find_one({"id": proposal_id})
+
+    # On approval, deliver the branded proposal PDF to the owning rep.
+    if body.decision == "approved":
+        asyncio.create_task(_deliver_banner_approval_email(updated, admin))
     return _finalize(updated, admin)
 
 

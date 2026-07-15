@@ -24,6 +24,12 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 9)
+- **Automatic proposal PDF email on approval** — when an admin approves any commercial proposal (banner or TV sponsorship), a fire-and-forget background task builds the branded PDF, base64-encodes it, and delivers it as an attachment to the owning representative via Resend. Uses the rep-facing view (internal notes already stripped) so the document is safe to forward to the customer. Never blocks the approval response.
+- **Audit trail for delivery** — every attempted send writes an entry to `audit_log`: action `proposal.{banner|sponsorship}.pdf_emailed` on success, `..pdf_email_failed` on any upstream failure (dev-mode empty API key, Resend error, missing user record). Details record `to`, `ok`, `pdf_bytes`.
+- **Beautiful email envelope** — matching the Independent Media Hub design system: editorial headline, "Proposal approved" eyebrow (green), IMN cover-block with the approved amount + reference, deep link back to the platform, and a confidential-footer.
+- **Zero code change to deploy** — the flow is fully driven by env vars `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. When empty (dev), a fallback log line captures the intended delivery so QA can verify without hitting Resend.
+
 ## What's Implemented (Feb 2026 · Iteration 8)
 - **Premium commercial proposal PDF** — `GET /api/campaigns/{id}/proposal.pdf` and `GET /api/sponsorships/{id}/proposal.pdf` generate a branded, sales-quality multi-page A4 document using ReportLab. Available only to the owning rep + administrators once the proposal is approved. Layout: editorial cover, section on Independent Media Network, selected inventory (banner) or full TV project presentation with sponsorship rights + episode selection grid, dark commercial-terms block with the approved amount, and an official "Approved" green stamp block with approver / date / reference.
 - **`strip_internal_notes()` gate** — the PDF endpoint strips internal notes before rendering for reps, guaranteeing confidential admin notes never leak into a document reps share with customers.
