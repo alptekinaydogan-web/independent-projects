@@ -1,0 +1,38 @@
+{
+  "summary": "QA readiness sweep post-reseed. Backend: 29/29 pytest tests PASS (100%) — every page-backing endpoint for owner and rep returns 200, permission gates hold (rep→admin=403, rep cannot seed, rep-side payloads leak no internal_notes), business logic verified end-to-end (owner approving a pending banner with representative_feedback + internal_notes correctly persists both, writes proposal.banner.approved audit entry, and the same proposal fetched by the rep exposes representative_feedback but ZERO internal_notes anywhere in the payload), edge case verified (rep Duplicate & revise on revision_requested banner creates a status='revised' child linked via parent_proposal_id), performance smoke (/campaigns, /reports/overview, /admin/audit-log all <3s). Frontend: 9 owner pages + 7 rep pages + 1 TV detail all render (200, no error boundaries, 0 JS errors on 15/17 pages). Rep→/admin correctly redirects to /rep. Reseed button visible only for owner. Rep 768px viewport has no horizontal overflow. Rep /banners UI shows correct affordances (Proposal PDF, Duplicate, History) and no stale 'Pending review' copy. ONE CRITICAL FRONTEND BUG DISCOVERED: /admin/representatives crashes with uncaught runtime error overlay because frontend calls /api/countries which does not exist in the backend — Promise.all rejects, table shows 'No representatives yet' even though /api/admin/representatives itself returns 200 with Victor+Amelia. User will hit this immediately during manual review.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "admin/Representatives.jsx",
+        "issue": "Page throws uncaught 404 error overlay and renders 'No representatives yet' empty state. Root cause: Representatives.jsx line 20 does `Promise.all([api.get('/admin/representatives'), api.get('/countries')])` but /api/countries is not registered in any backend router. Because Promise.all short-circuits on rejection, the reps data is discarded even though /api/admin/representatives returns 200. Two console 404 errors and an 'Uncaught runtime errors' modal are visible.",
+        "selector": "/admin/representatives",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "login page", "issues": ["Login page copy contains 'Independent Media Network' but not the phrase 'Independent Media Hub'. Review request wanted BOTH strings to appear correctly. Sidebar on authenticated screens does say 'Media Hub', so terminology is not swapped — just not fully present on /login. Low priority."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_qa_readiness.py",
+    "/app/test_reports/pytest/qa_readiness.xml"
+  ],
+  "action_items": [
+    "FIX /admin/representatives crash: either add a GET /api/countries endpoint returning the list used by the rep-creation form, OR remove the /countries fetch from Representatives.jsx (line 20) and use a static list / already-embedded catalog. Currently the page is unusable and the empty state is misleading.",
+    "OPTIONAL polish: ensure 'Independent Media Hub' phrase appears on the login page for brand consistency (currently only 'Independent Media Network' is present)."
+  ],
+  "critical_code_review_comments": [
+    "Representatives.jsx uses Promise.all for two independent fetches; a Promise.allSettled or separate awaits would prevent a missing dictionary endpoint from taking down the primary data render. Same pattern is worth auditing across other admin pages.",
+    "There is no global axios error handler surfacing a graceful toast — a 404 on a secondary lookup manifests as a red 'Uncaught runtime errors' overlay from react-error-overlay, which is visible in prod-preview mode and will alarm the user during QA."
+  ],
+  "updated_files": ["/app/backend/tests/test_qa_readiness.py"],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "94% (16/17 screens clean; /admin/representatives broken)"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026! ; Rep victor.laurent@parismedia.fr / Rep2026! ; Inactive amelia.hart@londonhouse.co.uk (401 on login).",
+  "seed_data_creation": "NONE — respected the review request instruction not to re-seed. Used the fixtures the main agent primed (17 banners, 11 sponsorships, 11 notifications, 54 audit entries baseline). Note: the business-logic test approved one pending banner and emitted new audit rows, and the duplicate test created one 'revised' child banner — these are intentional QA-generated deltas the user should expect to see.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Post-fix, re-run /app/backend/tests/test_qa_readiness.py (29 tests, ~4s) and re-hit /admin/representatives in the browser to confirm no red overlay + Victor/Amelia rows render. The pytest suite deliberately DOES NOT reseed, so run it directly on whatever fixture state exists. Command: `python -m pytest /app/backend/tests/test_qa_readiness.py -v -o addopts=`.",
+  "rca of the issue": "Frontend /admin/representatives issues an axios GET /api/countries as part of a Promise.all with /api/admin/representatives. Backend has NO /api/countries route (verified via grep of routers). The 404 rejects the Promise.all, so the loader never assigns the reps state and the table falls back to its 'No representatives yet' empty state. React's dev error overlay then displays the raw AxiosError. Mitigation options: (a) add a small GET /api/countries returning a static ISO country list under require_admin, or (b) change Representatives.jsx to `Promise.allSettled` + inline country list, or (c) hard-code the country dropdown options in the New-Rep dialog and drop the fetch entirely."
+}
