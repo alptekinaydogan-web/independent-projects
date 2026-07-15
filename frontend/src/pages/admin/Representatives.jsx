@@ -17,8 +17,14 @@ export default function Representatives() {
   const [form, setForm] = useState({ email: "", password: "", name: "", agency_name: "", country: "" });
 
   const load = async () => {
-    const [r1, r2] = await Promise.all([api.get("/admin/representatives"), api.get("/countries")]);
-    setReps(r1.data); setCountries(r2.data);
+    // Use allSettled so a failure on a secondary lookup (e.g. /countries)
+    // does not swallow the primary reps data and take the page down.
+    const [r1, r2] = await Promise.allSettled([
+      api.get("/admin/representatives"),
+      api.get("/countries"),
+    ]);
+    if (r1.status === "fulfilled") setReps(r1.value.data);
+    if (r2.status === "fulfilled") setCountries(r2.value.data);
   };
   useEffect(() => { load(); }, []);
 

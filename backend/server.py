@@ -24,6 +24,7 @@ from routers.uploads import router as uploads_router
 from routers.owner import router as owner_router
 from routers.audit_log import router as audit_router
 from routers.scheduler_admin import router as scheduler_router
+from routers.reference import router as reference_router
 from notifications import router as notifications_router
 
 
@@ -34,7 +35,7 @@ api = APIRouter(prefix="/api")
 for r in (auth_router, reps_router, inventory_router,
           campaigns_router, tv_router, proposals_router, reports_router,
           uploads_router, owner_router, audit_router, scheduler_router,
-          notifications_router):
+          reference_router, notifications_router):
     api.include_router(r)
 app.include_router(api)
 
