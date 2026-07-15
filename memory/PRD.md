@@ -24,6 +24,12 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 13 · QA READY)
+- **Demo environment seeder** — new `POST /api/admin/demo/seed` (owner-only) wipes `campaigns/sponsorships/notifications/audit_log/proposals` and rebuilds a realistic dataset covering EVERY lifecycle status. Produces: 17 banner proposals (3 submitted / 2 revised / 2 revision-requested / 6 approved / 2 rejected / 2 archived), 11 TV sponsorships (2 / 1 / 1 / 5 / 1 / 1), 11 role-fanned-out notifications (unread action-required + reminders + info), 54+ audit entries. Data is time-distributed over the past 6 months so the reports dashboard shows a real curve.
+- **One-licensed-representative model** — Victor Laurent (Paris Media Group) is the active QA representative. Amelia Hart is marked `is_active=False` so the platform behaves as a single-rep environment while preserving referential integrity.
+- **Dashboard reseed control** — owner-only `Reseed demo data` button in the admin dashboard header, with confirmation dialog + success toast. Non-owners never see the button.
+- **Idempotent + audited** — every reseed writes an audit entry `demo.seed` with the summary payload. Running twice returns to a clean baseline.
+
 ## What's Implemented (Feb 2026 · Iteration 12)
 - **Admin Dashboard vitals card** — new "System vitals" section on `/admin` consuming `GET /api/admin/system/health`. Five color-coded columns: Database (green/red with ping ms), Queue depth (background tasks outstanding), Email delivery (Live green / Dev fallback amber with sender), Scheduler (archive retention days + reminder thresholds), Uptime (since restart). Includes an overall status badge ("All systems normal" / "Degraded") in the top-right. Polls every 30 seconds while the tab is open so admins get a live pulse of platform health at a glance.
 
