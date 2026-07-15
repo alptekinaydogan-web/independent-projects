@@ -31,6 +31,16 @@ export default function BannerProposals() {
   const load = () => api.get("/campaigns").then(r => setItems(r.data));
   useEffect(() => { load(); }, []);
 
+  const downloadPdf = async (e, path, filename) => {
+    e.preventDefault();
+    const r = await api.get(path, { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <PageHeader eyebrow="Banner Inventory"

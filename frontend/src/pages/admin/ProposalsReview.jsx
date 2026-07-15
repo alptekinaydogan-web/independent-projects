@@ -85,11 +85,12 @@ export default function ProposalsReview() {
 
   const downloadPdf = async (kind, id) => {
     const path = kind === "banner" ? `/campaigns/${id}/proposal.pdf` : `/sponsorships/${id}/proposal.pdf`;
+    const filename = kind === "banner" ? `IMN-proposal-${id.slice(0, 8)}.pdf` : `IMN-sponsorship-${id.slice(0, 8)}.pdf`;
     try {
       const r = await api.get(path, { responseType: "blob" });
       const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
       const a = document.createElement("a");
-      a.href = url; a.download = `IMN-${kind}-${id.slice(0, 8)}.pdf`;
+      a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }

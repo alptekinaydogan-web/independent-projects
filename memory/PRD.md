@@ -24,6 +24,13 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 8)
+- **Premium commercial proposal PDF** — `GET /api/campaigns/{id}/proposal.pdf` and `GET /api/sponsorships/{id}/proposal.pdf` generate a branded, sales-quality multi-page A4 document using ReportLab. Available only to the owning rep + administrators once the proposal is approved. Layout: editorial cover, section on Independent Media Network, selected inventory (banner) or full TV project presentation with sponsorship rights + episode selection grid, dark commercial-terms block with the approved amount, and an official "Approved" green stamp block with approver / date / reference.
+- **`strip_internal_notes()` gate** — the PDF endpoint strips internal notes before rendering for reps, guaranteeing confidential admin notes never leak into a document reps share with customers.
+- **Sponsorship duplicate now supports episode override in the UI** — the DuplicateProposalDialog fetches the TV project on open and renders an episode picker grid. Selected = navy, Taken = disabled gray (episodes locked by OTHER approved proposals), Available = white with border. The rep's original episodes always stay selectable so they can retain them.
+- **PDF download buttons everywhere** — rep sees a green "PROPOSAL PDF" button on every approved row in `/rep/banners` and `/rep/sponsorships`. Admin sees the same button on approved rows in `/admin/proposals-review`.
+- **ReportLab pinned** to `reportlab==5.0.0` in `/app/backend/requirements.txt`.
+
 ## What's Implemented (Feb 2026 · Iteration 7)
 - **Full proposal lifecycle history**: every commercial proposal (banner + TV sponsorship) carries an append-only `history` array. Statuses: `submitted → revision_requested → revised → approved | rejected → archived`. Each entry stores actor, timestamp, `representative_feedback` and `internal_notes`.
 - **Split note channels**: admins now write two separate notes on every decision — `representative_feedback` (shared with rep) and `internal_notes` (admin-only, never exposed to reps). Backend strips `internal_notes` from every rep-facing response.
