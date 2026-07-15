@@ -24,6 +24,10 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 11)
+- **Admin Audit Log UI upgrade** — `/admin/audit-log` now exposes the new backend `action` filter with a curated preset dropdown (banner proposals, TV sponsorships, email deliveries, TV project management, representative management, admin management, inventory) AND a free-text prefix search. Free-text always wildcard-suffixed. Inline chip surfaces the effective filter; `Clear filters` resets everything. Action column shows the human label above the raw action key.
+- **Operational health endpoint** — new `GET /api/admin/system/health` (owner/admin only) returns live vitals: DB reachability + latency, six-key collection counts, outstanding background-task count, email provider mode (live vs dev-fallback with sender), and scheduler configuration (reminder days + archive retention). Uses `db.command("ping")` for a real round-trip. Non-admin gets 403.
+
 ## What's Implemented (Feb 2026 · Iteration 10)
 - **Audit-log action filter** — `GET /api/admin/audit-log` now accepts an `action` query parameter. Supports both exact match (e.g. `action=proposal.banner.approved`) and wildcard prefix match with a trailing asterisk (e.g. `action=proposal.banner.*`). Regex metacharacters are escaped so the prefix is interpreted literally. Composes cleanly with the existing `entity_type` and `actor_role` filters.
 - **Tracked background-task registry** — new `background_tasks.py` module exposes `spawn(coro, name=...)` which schedules a coroutine on the event loop AND holds a strong reference until it completes (preventing garbage-collector cancellation) via a module-level `set()`. Every previously-fire-and-forget `asyncio.create_task(...)` call in the codebase (banner + sponsorship approval-email helpers) now uses `spawn()`.
