@@ -24,6 +24,9 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 12)
+- **Admin Dashboard vitals card** — new "System vitals" section on `/admin` consuming `GET /api/admin/system/health`. Five color-coded columns: Database (green/red with ping ms), Queue depth (background tasks outstanding), Email delivery (Live green / Dev fallback amber with sender), Scheduler (archive retention days + reminder thresholds), Uptime (since restart). Includes an overall status badge ("All systems normal" / "Degraded") in the top-right. Polls every 30 seconds while the tab is open so admins get a live pulse of platform health at a glance.
+
 ## What's Implemented (Feb 2026 · Iteration 11)
 - **Admin Audit Log UI upgrade** — `/admin/audit-log` now exposes the new backend `action` filter with a curated preset dropdown (banner proposals, TV sponsorships, email deliveries, TV project management, representative management, admin management, inventory) AND a free-text prefix search. Free-text always wildcard-suffixed. Inline chip surfaces the effective filter; `Clear filters` resets everything. Action column shows the human label above the raw action key.
 - **Operational health endpoint** — new `GET /api/admin/system/health` (owner/admin only) returns live vitals: DB reachability + latency, six-key collection counts, outstanding background-task count, email provider mode (live vs dev-fallback with sender), and scheduler configuration (reminder days + archive retention). Uses `db.command("ping")` for a real round-trip. Non-admin gets 403.
