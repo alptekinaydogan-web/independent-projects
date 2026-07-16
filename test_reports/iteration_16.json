@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 16 QA polish pass fully verified. Backend: new pytest suite test_iteration16.py (12 tests) 100% PASS — rep profile aggregation, inventory detail (admin+rep views), 13-bucket availability calendar, overlap 409 guard, /countries accessible to both roles. Regression: test_qa_readiness.py (29) + test_countries.py (3, after fixing the stale rep-forbidden assertion to reflect iteration-16 intent) all pass. Frontend: Login copy has all three copy items ('PRIVATE PARTNER PLATFORM' eyebrow, 'Built exclusively for Independent Media Network Partners' headline, private commercial environment subheadline). Sidebar renders 'Commerce' + 'Project Proposals' for BOTH admin (owner) AND rep — 'Media Hub' and 'Editorial Proposals' fully purged. Resilient pages (/admin/reports, /admin/audit-log, /admin/admins, /admin/representatives, /rep/reports, /rep/proposals) all load without red runtime-error overlay. RepresentativeProfile CRM page renders at /admin/representatives/{id} with active-count testid, Timeline, Banner+TV stats. InventoryDetail renders (direct URL) with calendar-grid (13 monthly cells), inventory-status badge, reservations+offers lists. Rep view: /rep/inventory/global__hero shows status=ACTIVE and HIDES 'Prepare an offer' CTA (0 count); /rep/inventory/entertainment__sticky shows AVAILABLE and shows the CTA (1 count) — reservation guard verified end-to-end. New Representative dialog country Select populated with 66 ISO countries incl. France, Germany, Spain, Italy, UK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "InventoryCatalog", "issue": "Admin inventory tiles (data-testid='inv-item-*') are plain <div>s — clicking a tile does NOT navigate to /admin/inventory/{id}. Spec item 4 says 'click into any inventory item → routes to /admin/inventory/{id}'. Direct navigation works (all testids + calendar-grid render), but there is no click-through affordance from the catalog page.", "selector": "[data-testid^='inv-item-']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration16.py",
+    "/app/backend/tests/test_countries.py",
+    "/app/backend/tests/test_qa_readiness.py",
+    "/app/test_reports/pytest/iter16.xml"
+  ],
+  "action_items": [
+    "Wrap admin InventoryCatalog tiles in <Link to={`/admin/inventory/${it.id}`}> (and rep tiles → /rep/inventory/{id}) so the click-through path matches spec item 4. Route + detail page are already fully functional."
+  ],
+  "critical_code_review_comments": [
+    "inventory.py `_lifecycle` treats a start-date-in-past+end-in-future as 'active' but the branch that marks approved-but-not-yet-live as 'reserved' fires only when start > today; correct — but the second-branch label is misleading because the same enum value 'reserved' is also used at the inventory-item level. Not a bug, just a semantic overload worth documenting.",
+    "campaigns.py overlap query uses simple string comparison on ISO dates ($lte/$gte). Works because dates are stored as YYYY-MM-DD strings; fragile if any legacy record has full ISO datetimes. Consider normalising on write.",
+    "InventoryCatalog.jsx does not wrap tiles in a Link — see UI bug above.",
+    "RepresentativeProfile renders correctly but the header 'Active campaigns' text isn't verbatim in the DOM (only the data-testid='active-count' number is). If any test targets that exact string, it'll miss."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration16.py",
+    "/app/backend/tests/test_countries.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 iter16 + 3/3 countries + 29/29 QA readiness = 44/44)", "frontend": "~95% (single non-blocking UX gap on inventory catalog click-through)"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026! ; Rep victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "None — reused reseeded demo data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 16 delivered: rename Media Hub→Commerce, ErrorBoundary around <Outlet />, new /admin/representatives/{id}/profile CRM page, /inventory/{id} detail + /inventory/{id}/availability endpoints, /rep/inventory/{id} rep view, 409 overlap guard on POST /campaigns, /countries opened to reps, Editorial→Project Proposals rename. Everything verified functional. Only outstanding item: InventoryCatalog tiles need Link wrapping for click-through; detail page & routing already work via direct URL."
+}

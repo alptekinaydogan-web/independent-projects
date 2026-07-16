@@ -1,4 +1,4 @@
-"""Pydantic models used across Independent Media Hub routers."""
+"""Pydantic models used across Independent Commerce routers."""
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 

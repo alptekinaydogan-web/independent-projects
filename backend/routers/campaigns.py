@@ -132,6 +132,21 @@ async def create_banner_proposal(body: BannerProposalCreate, user: dict = Depend
     if body.offer_amount_usd <= 0:
         raise HTTPException(status_code=400, detail="Offer amount must be greater than zero")
 
+    # Prevent submitting a proposal for a window that already has an approved,
+    # non-archived reservation. Overlap = ANY day overlap between the two
+    # windows. Reps see the calendar first so this is a hard safety net.
+    if end_date:
+        overlap = await db.campaigns.find_one({
+            "inventory_id": body.inventory_id,
+            "status": "approved",
+            "is_archived": {"$ne": True},
+            "start_date": {"$lte": end_date},
+            "end_date":   {"$gte": start_date},
+        })
+        if overlap:
+            raise HTTPException(status_code=409,
+                                detail=f"This inventory is already reserved for that period ({overlap.get('start_date','')[:10]} → {overlap.get('end_date','')[:10]}). Choose a different window.")
+
     proposal = {
         "id": str(uuid.uuid4()),
         "kind": "banner",

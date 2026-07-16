@@ -1,4 +1,4 @@
-"""Independent Media Hub backend tests."""
+"""Independent Commerce backend tests."""
 import os
 import pytest
 import requests

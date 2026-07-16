@@ -184,7 +184,7 @@ async def seed_tv_projects() -> None:
 def write_credentials_file() -> None:
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)
-    (creds_dir / "test_credentials.md").write_text(f"""# Independent Media Hub – Test Credentials
+    (creds_dir / "test_credentials.md").write_text(f"""# Independent Commerce – Test Credentials
 
 ## Owner (root administrator)
 - Email: `{ADMIN_EMAIL}`

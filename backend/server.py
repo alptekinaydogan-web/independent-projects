@@ -1,4 +1,4 @@
-"""Independent Media Hub — FastAPI application entrypoint.
+"""Independent Commerce — FastAPI application entrypoint.
 
 Assembles routers, configures CORS, runs startup seeding.
 Individual endpoint logic lives in /app/backend/routers/*.
@@ -28,7 +28,7 @@ from routers.reference import router as reference_router
 from notifications import router as notifications_router
 
 
-app = FastAPI(title="Independent Media Hub API")
+app = FastAPI(title="Independent Commerce API")
 
 # All routes under /api
 api = APIRouter(prefix="/api")

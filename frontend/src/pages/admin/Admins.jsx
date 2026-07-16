@@ -41,7 +41,7 @@ export default function Admins() {
       <PageHeader
         eyebrow="Ownership · Restricted"
         title="Administrators"
-        description="Manage the humans with administrative access to Independent Media Hub. Only the owner can add or remove administrators."
+        description="Manage the humans with administrative access to Independent Commerce. Only the owner can add or remove administrators."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

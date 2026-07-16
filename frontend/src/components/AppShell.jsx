@@ -1,7 +1,8 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles, ShieldCheck, ScrollText, Bell } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 function Section({ label, children }) {
   return (
@@ -40,7 +41,7 @@ export default function AppShell({ role }) {
               <span className="imh-dot" style={{ background: "#fff" }} />
               <span className="imh-eyebrow" style={{ color: "#93A0C2" }}>Independent</span>
             </div>
-            <h1 className="font-editorial text-2xl leading-tight mt-1">Media Hub</h1>
+            <h1 className="font-editorial text-2xl leading-tight mt-1">Commerce</h1>
             <p className="text-[11px] mt-1" style={{ color: "#93A0C2", letterSpacing: "0.06em" }}>
               {isAdmin ? (isOwner ? "OWNER CONSOLE" : "ADMINISTRATOR CONSOLE") : "REPRESENTATIVE CONSOLE"}
             </p>
@@ -58,7 +59,7 @@ export default function AppShell({ role }) {
               <Item to={`${base}/inventory`} icon={Globe2} testId="nav-admin-inventory">Inventory Catalog</Item>
               <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Proposals Review</Item>
               <Item to={`${base}/tv-projects`} icon={FilmIcon} testId="nav-admin-tv">TV Projects</Item>
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Editorial Proposals</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Project Proposals</Item>
             </Section>
             <Section label="Network">
               <Item to={`${base}/representatives`} icon={Users} testId="nav-admin-reps">Representatives</Item>
@@ -78,7 +79,7 @@ export default function AppShell({ role }) {
               <Item to={`${base}/tv`} icon={FilmIcon} testId="nav-rep-tv">TV Sponsorships</Item>
             </Section>
             <Section label="Grow">
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Editorial Proposals</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Project Proposals</Item>
               <Item to={`${base}/reports`} icon={BarChart3} testId="nav-rep-reports">Reports</Item>
             </Section>
           </>
@@ -101,7 +102,9 @@ export default function AppShell({ role }) {
       </aside>
 
       <main className="flex-1 min-w-0">
-        <Outlet />
+        <ErrorBoundary key={useLocation().pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

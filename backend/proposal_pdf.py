@@ -1,4 +1,4 @@
-"""Premium commercial proposal PDF generator for Independent Media Hub.
+"""Premium commercial proposal PDF generator for Independent Commerce.
 
 Generates a branded, sales-quality PDF that a representative can share with
 their customer as a formal proposal document from Independent Media Network.

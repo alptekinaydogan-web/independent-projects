@@ -45,9 +45,12 @@ def test_countries_owner_200(owner):
         assert isinstance(c["code"], str) and isinstance(c["name"], str)
 
 
-def test_countries_rep_forbidden(rep):
+def test_countries_rep_allowed(rep):
+    # Iteration 16: /countries is now accessible to any authenticated user.
     r = rep.get(f"{API}/countries", timeout=15)
-    assert r.status_code in (401, 403), r.status_code
+    assert r.status_code == 200, r.status_code
+    data = r.json()
+    assert isinstance(data, list) and len(data) >= 60
 
 
 def test_countries_unauth():

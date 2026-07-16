@@ -50,14 +50,13 @@ export default function Login() {
           </div>
 
           <div>
-            <div className="imh-eyebrow" style={{ color: "#B8C1DA" }}>The commercial operating system</div>
+            <div className="imh-eyebrow" style={{ color: "#B8C1DA" }}>Private Partner Platform</div>
             <h1 className="font-editorial text-5xl xl:text-6xl leading-[1.02] mt-4 max-w-xl">
-              A closed platform<br/>for the <span className="italic">operators</span><br/>of a global press.
+              Built exclusively<br/>for <span className="italic">Independent Media Network</span><br/>Partners.
             </h1>
             <p className="mt-8 text-[15px] leading-relaxed text-[#C9D1E4] max-w-md">
-              Independent Media Hub is where our licensed representatives sell banner
-              campaigns across nations and sponsor original Independent TV productions —
-              all from one deliberate, executive workspace.
+              A private commercial environment reserved exclusively for licensed
+              Independent Media Network Partners.
             </p>
           </div>
 
@@ -77,9 +76,9 @@ export default function Login() {
       <div className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-[420px]">
           <div className="imh-eyebrow" data-testid="login-eyebrow">Authorized access</div>
-          <h2 className="font-editorial text-4xl mt-3 leading-tight">Sign in to Independent Media Hub</h2>
+          <h2 className="font-editorial text-4xl mt-3 leading-tight">Sign in to Independent Commerce</h2>
           <p className="text-sm text-[#52525B] mt-3">
-            This is a private, invitation-only platform for licensed representatives of the Independent Media Network.
+            Reserved for licensed Independent Media Network Partners.
           </p>
 
           {!showForgot ? (

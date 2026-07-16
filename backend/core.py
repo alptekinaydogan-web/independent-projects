@@ -1,4 +1,4 @@
-"""Independent Media Hub — shared configuration, database, logger, environment."""
+"""Independent Commerce — shared configuration, database, logger, environment."""
 from dotenv import load_dotenv
 from pathlib import Path
 import os

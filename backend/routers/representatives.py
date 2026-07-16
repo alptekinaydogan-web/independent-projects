@@ -63,7 +63,7 @@ async def update_rep(rep_id: str, body: RepresentativeUpdate, admin: dict = Depe
                      event_type=("representative.reactivated" if active else "representative.suspended"),
                      title=("Your account was reactivated" if active
                             else "Your account was suspended"),
-                     message=(f"An administrator restored full access to your Independent Media Hub account."
+                     message=(f"An administrator restored full access to your Independent Commerce account."
                               if active
                               else "An administrator temporarily suspended your access. Reach out to your platform owner to restore it."),
                      entity_type="user", entity_id=rep_id,
@@ -88,3 +88,62 @@ async def delete_rep(rep_id: str, admin: dict = Depends(require_admin)):
         raise HTTPException(status_code=404, detail="Not found")
     await audit(admin, "representative.delete", "user", rep_id, {})
     return {"ok": True}
+
+
+
+@router.get("/{rep_id}/profile")
+async def rep_profile(rep_id: str, _: dict = Depends(require_admin)):
+    """Full CRM-style profile aggregating all commercial activity for a rep."""
+    rep = await db.users.find_one({"id": rep_id, "role": "representative"})
+    if not rep:
+        raise HTTPException(status_code=404, detail="Representative not found")
+    rep.pop("_id", None); rep.pop("password_hash", None)
+
+    # Banner stats
+    banner_by_status: dict = {}
+    async for c in db.campaigns.find({"rep_id": rep_id}):
+        banner_by_status[c.get("status", "unknown")] = banner_by_status.get(c.get("status", "unknown"), 0) + 1
+    # TV stats
+    tv_by_status: dict = {}
+    async for s in db.sponsorships.find({"rep_id": rep_id}):
+        tv_by_status[s.get("status", "unknown")] = tv_by_status.get(s.get("status", "unknown"), 0) + 1
+    # Active campaigns (approved, non-archived, still within flight)
+    active_campaigns = []
+    from datetime import datetime as _dt, timezone as _tz
+    today = _dt.now(_tz.utc).date().isoformat()
+    async for c in db.campaigns.find({"rep_id": rep_id, "status": "approved", "is_archived": {"$ne": True}}):
+        end = (c.get("end_date") or "")[:10]
+        start = (c.get("start_date") or "")[:10]
+        if not end or (start <= today <= end):
+            c.pop("_id", None)
+            active_campaigns.append({"id": c["id"], "campaign_name": c.get("campaign_name"),
+                                      "network_name": c.get("network_name"), "position_name": c.get("position_name"),
+                                      "start_date": start, "end_date": end, "offer_amount_usd": c.get("offer_amount_usd")})
+    # Recent proposal history (last 30 mixed)
+    history = []
+    async for c in db.campaigns.find({"rep_id": rep_id}).sort("created_at", -1).limit(30):
+        history.append({"kind": "banner", "id": c["id"], "title": c.get("campaign_name", ""),
+                         "status": c.get("status"), "created_at": c.get("created_at"),
+                         "amount": c.get("offer_amount_usd")})
+    async for s in db.sponsorships.find({"rep_id": rep_id}).sort("created_at", -1).limit(30):
+        history.append({"kind": "sponsorship", "id": s["id"], "title": s.get("proposal_name", ""),
+                         "status": s.get("status"), "created_at": s.get("created_at"),
+                         "amount": s.get("offer_amount_usd")})
+    history.sort(key=lambda h: h.get("created_at") or "", reverse=True)
+    history = history[:30]
+
+    # Timeline — audit entries scoped to this rep as actor
+    timeline = []
+    async for a in db.audit_log.find({"actor_id": rep_id}).sort("created_at", -1).limit(50):
+        a.pop("_id", None)
+        timeline.append({"action": a.get("action"), "at": a.get("created_at"),
+                          "entity_type": a.get("entity_type"), "entity_id": a.get("entity_id")})
+
+    return {
+        "representative": rep,
+        "banner_stats": {"total": sum(banner_by_status.values()), **banner_by_status},
+        "tv_stats": {"total": sum(tv_by_status.values()), **tv_by_status},
+        "active_campaigns": active_campaigns,
+        "history": history,
+        "timeline": timeline,
+    }

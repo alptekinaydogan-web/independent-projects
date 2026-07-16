@@ -7,7 +7,7 @@ without changing the endpoint shape.
 """
 from fastapi import APIRouter, Depends
 
-from security import require_admin
+from security import get_current_user
 
 router = APIRouter(tags=["reference"])
 
@@ -82,10 +82,11 @@ COUNTRIES = [
 
 
 @router.get("/countries")
-async def list_countries(_: dict = Depends(require_admin)):
-    """Return the country catalog for rep-creation forms.
+async def list_countries(_: dict = Depends(get_current_user)):
+    """Return the country catalog for rep-creation forms and editorial proposals.
 
-    Admin-only to align with the rep-management surface — reps never need
-    this list themselves.
+    Available to any authenticated user — this is a static reference catalog
+    with no sensitive data. Guarding the endpoint at all is purely to keep it
+    off the public unauth surface.
     """
     return COUNTRIES

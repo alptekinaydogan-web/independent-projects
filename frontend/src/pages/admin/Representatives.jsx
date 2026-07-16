@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ export default function Representatives() {
     <div>
       <PageHeader eyebrow="Network"
         title="Representatives"
-        description="Licensed commercial partners with access to Independent Media Hub."
+        description="Licensed commercial partners with access to Independent Commerce."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -102,7 +103,11 @@ export default function Representatives() {
             <tbody>
               {reps.map(r => (
                 <tr key={r.id} className="border-b border-[#E4E4E1] last:border-b-0 hover:bg-[#F9F9F6]" data-testid={`rep-row-${r.id}`}>
-                  <Td className="font-editorial text-base">{r.agency_name}</Td>
+                  <Td className="font-editorial text-base">
+                    <Link to={`/admin/representatives/${r.id}`} className="hover:text-[#0033A0]" data-testid={`rep-profile-link-${r.id}`}>
+                      {r.agency_name}
+                    </Link>
+                  </Td>
                   <Td>{r.name}</Td>
                   <Td className="font-mono-imh text-xs">{r.email}</Td>
                   <Td>{r.country}</Td>

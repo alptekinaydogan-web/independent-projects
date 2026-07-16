@@ -27,6 +27,8 @@ import TVProjectDetail from "@/pages/rep/TVProjectDetail";
 import Sponsorships from "@/pages/rep/Sponsorships";
 import SubmitProposal from "@/pages/rep/SubmitProposal";
 import RepReports from "@/pages/rep/Reports";
+import RepresentativeProfile from "@/pages/admin/RepresentativeProfile";
+import InventoryDetail from "@/pages/InventoryDetail";
 
 function App() {
   return (
@@ -40,7 +42,9 @@ function App() {
             <Route element={<ProtectedRoute role="admin"><AppShell role="admin" /></ProtectedRoute>}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/representatives" element={<Representatives />} />
+              <Route path="/admin/representatives/:id" element={<RepresentativeProfile />} />
               <Route path="/admin/inventory" element={<BannerInventory />} />
+              <Route path="/admin/inventory/:id" element={<InventoryDetail />} />
               <Route path="/admin/proposals-review" element={<ProposalsReview />} />
               <Route path="/admin/tv-projects" element={<TVProjects />} />
               <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
@@ -55,6 +59,7 @@ function App() {
               <Route path="/rep" element={<RepDashboard />} />
               <Route path="/rep/banners" element={<Campaigns />} />
               <Route path="/rep/banners/new" element={<CampaignBuilder />} />
+              <Route path="/rep/inventory/:id" element={<InventoryDetail />} />
               <Route path="/rep/tv" element={<TVCatalog />} />
               <Route path="/rep/tv/:id" element={<TVProjectDetail />} />
               <Route path="/rep/sponsorships" element={<Sponsorships />} />
