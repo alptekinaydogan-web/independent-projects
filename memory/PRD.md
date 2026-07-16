@@ -24,6 +24,16 @@ Representatives also submit **TV Project Proposals** for admin review.
 - Only internal (representative) prices in the platform. Representative sets their own client price.
 - Proposals reviewed by admin only.
 
+## What's Implemented (Feb 2026 · Iteration 16-17 · FINAL QA POLISH)
+- **Project rename** `Independent Media Hub` → `Independent Commerce` — sidebar wordmark, login page, page metadata (index.html title), page copy, seed messages, emails, PDF documents (via source strings). Cache-only leftovers.
+- **Landing page copy** — new eyebrow `PRIVATE PARTNER PLATFORM`, headline `Built exclusively for Independent Media Network Partners.`, subheadline `A private commercial environment reserved exclusively for licensed Independent Media Network Partners.`
+- **Navigation rename** — admin sidebar `Editorial Proposals` → `Project Proposals`; rep sidebar identical rename. New rep sidebar item `Banner Inventory` for direct catalog access.
+- **Representative CRM profile page** (`/admin/representatives/{id}`) — identity fields (email, country, status, registration+approval), banner+TV stats cards with per-status breakdown, active-campaigns list, recent proposal history (30 items), timeline of the rep's own audit actions (50 items). Clickable from Representatives table row.
+- **Banner Inventory as central object** — `GET /api/inventory/{id}` returns inventory + status (available/reserved/active/expired) + reservations + offers. `GET /api/inventory/{id}/availability` returns 13 color-coded monthly buckets. Detail page renders calendar grid + status badge + admin-vs-rep offer scoping.
+- **Automatic duplicate-proposal prevention** — POST /api/campaigns now returns 409 when window overlaps an existing approved+non-archived proposal on the same inventory.
+- **Representative creation crash** — `/api/countries` opened to any authenticated user (was admin-only, breaking the rep submit-proposal form).
+- **Every page fails gracefully** — new `ErrorBoundary.jsx` component wraps `<Outlet />` in `AppShell`, keyed by pathname so navigation resets the boundary. If any page throws, sidebar stays operational and the boundary shows a "Section unavailable" panel with Try again button.
+
 ## What's Implemented (Feb 2026 · Iteration 13 · QA READY)
 - **Demo environment seeder** — new `POST /api/admin/demo/seed` (owner-only) wipes `campaigns/sponsorships/notifications/audit_log/proposals` and rebuilds a realistic dataset covering EVERY lifecycle status. Produces: 17 banner proposals (3 submitted / 2 revised / 2 revision-requested / 6 approved / 2 rejected / 2 archived), 11 TV sponsorships (2 / 1 / 1 / 5 / 1 / 1), 11 role-fanned-out notifications (unread action-required + reminders + info), 54+ audit entries. Data is time-distributed over the past 6 months so the reports dashboard shows a real curve.
 - **One-licensed-representative model** — Victor Laurent (Paris Media Group) is the active QA representative. Amelia Hart is marked `is_active=False` so the platform behaves as a single-rep environment while preserving referential integrity.
