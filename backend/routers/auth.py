@@ -25,6 +25,11 @@ async def login(body: LoginBody, response: Response):
     access = create_access_token(user["id"], user["email"], user["role"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
+    # Track last-login timestamp for the CRM (best-effort — never blocks login)
+    try:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"last_login_at": now_iso()}})
+    except Exception:
+        pass
     user.pop("_id", None); user.pop("password_hash", None)
     return {"user": user, "access_token": access}
 

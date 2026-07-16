@@ -23,6 +23,9 @@ class RepresentativeCreate(BaseModel):
     name: str
     agency_name: str
     country: str
+    phone: Optional[str] = ""
+    website: Optional[str] = ""
+    territory: Optional[str] = ""
     is_active: bool = True
 
 
@@ -30,6 +33,9 @@ class RepresentativeUpdate(BaseModel):
     name: Optional[str] = None
     agency_name: Optional[str] = None
     country: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    territory: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
 

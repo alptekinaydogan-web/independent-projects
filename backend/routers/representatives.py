@@ -13,9 +13,52 @@ router = APIRouter(prefix="/admin/representatives", tags=["representatives"])
 
 @router.get("")
 async def list_reps(_: dict = Depends(require_admin)):
+    """List representatives enriched with CRM management columns:
+    active_campaigns_count, pending_offers_count, approved_offers_count,
+    last_activity_at (latest of created_at, decided_at, last_login_at).
+    """
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).date().isoformat()
+
     reps = await db.users.find({"role": "representative"}).to_list(500)
     for r in reps:
         r.pop("_id", None); r.pop("password_hash", None)
+
+    # Aggregate stats per rep in bulk to keep the endpoint fast
+    async def _stats(rep_id: str) -> dict:
+        active_count = 0
+        pending = 0
+        approved = 0
+        last_activity = None
+        async for c in db.campaigns.find({"rep_id": rep_id}):
+            if c.get("status") == "approved":
+                approved += 1
+                end = (c.get("end_date") or "")[:10]
+                start = (c.get("start_date") or "")[:10]
+                if not c.get("is_archived") and (not end or (start <= today <= end)):
+                    active_count += 1
+            elif c.get("status") in ("pending_review", "revised"):
+                pending += 1
+            for k in ("created_at", "decided_at"):
+                v = c.get(k)
+                if v and (last_activity is None or v > last_activity):
+                    last_activity = v
+        async for s in db.sponsorships.find({"rep_id": rep_id}):
+            if s.get("status") == "approved":
+                approved += 1
+                if not s.get("is_archived"):
+                    active_count += 1  # counted as an active engagement
+            elif s.get("status") in ("pending_review", "revised"):
+                pending += 1
+            for k in ("created_at", "decided_at"):
+                v = s.get(k)
+                if v and (last_activity is None or v > last_activity):
+                    last_activity = v
+        return {"active_engagements": active_count, "pending_offers": pending,
+                "approved_offers": approved, "last_activity_at": last_activity}
+
+    for r in reps:
+        r.update(await _stats(r["id"]))
     return reps
 
 
@@ -28,7 +71,10 @@ async def create_rep(body: RepresentativeCreate, admin: dict = Depends(require_a
         "id": str(uuid.uuid4()), "email": email,
         "password_hash": hash_password(body.password),
         "name": body.name, "role": "representative", "agency_name": body.agency_name,
-        "country": body.country, "is_active": body.is_active, "created_at": now_iso(),
+        "country": body.country, "phone": body.phone or "",
+        "website": body.website or "", "territory": body.territory or "",
+        "is_active": body.is_active, "created_at": now_iso(),
+        "approved_at": now_iso() if body.is_active else None,
     }
     await db.users.insert_one(user)
     await audit(admin, "representative.create", "user", user["id"],
@@ -132,12 +178,20 @@ async def rep_profile(rep_id: str, _: dict = Depends(require_admin)):
     history.sort(key=lambda h: h.get("created_at") or "", reverse=True)
     history = history[:30]
 
-    # Timeline — audit entries scoped to this rep as actor
+    # Timeline — audit entries scoped to this rep as actor OR as entity
     timeline = []
-    async for a in db.audit_log.find({"actor_id": rep_id}).sort("created_at", -1).limit(50):
+    async for a in db.audit_log.find({"$or": [{"actor_id": rep_id}, {"entity_id": rep_id}]}).sort("created_at", -1).limit(80):
         a.pop("_id", None)
         timeline.append({"action": a.get("action"), "at": a.get("created_at"),
-                          "entity_type": a.get("entity_type"), "entity_id": a.get("entity_id")})
+                          "actor_name": a.get("actor_name"), "actor_role": a.get("actor_role"),
+                          "entity_type": a.get("entity_type"), "entity_id": a.get("entity_id"),
+                          "details": a.get("details", {})})
+
+    # Notifications sent to this rep
+    notifications = []
+    async for n in db.notifications.find({"user_id": rep_id}).sort("created_at", -1).limit(50):
+        n.pop("_id", None)
+        notifications.append(n)
 
     return {
         "representative": rep,
@@ -146,4 +200,5 @@ async def rep_profile(rep_id: str, _: dict = Depends(require_admin)):
         "active_campaigns": active_campaigns,
         "history": history,
         "timeline": timeline,
+        "notifications": notifications,
     }

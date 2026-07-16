@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 18 full-stack verification (Representatives CRM upgrade + removeChild fix). Backend: 5/5 pytest passed. Frontend: rep creation completes cleanly (dialog closes, table refreshes, new row appears, ZERO removeChild/pageerror events), CRM profile renders 8-field identity, 4 KPI cards, all 4 tabs, all 8 history-filter chips, Edit/Suspend/Reset password inline actions work. All admin & rep routes stable — no ErrorBoundary triggered anywhere.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Representatives list · Last activity column", "issue": "Displays '-84378s ago' for Victor — relTime() helper produces negative deltas when last_activity_at is in the future relative to browser clock (or has TZ mismatch). Cosmetic only; suggest guarding with `if (secs < 0) return 'just now'` or clamp to zero.", "selector": "reps-table tbody tr td:nth-child(7)", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "backend_pytest": "5/5 PASS — list_reps enrichment (Victor: active=8 pending=9 approved=12), create_rep with phone/website/territory persists + no password_hash, profile.notifications array + timeline.actor_name/actor_role, PATCH phone update, /api/auth/login updates last_login_at within 1min",
+    "frontend_rep_creation": "PASS — dialog closes, new row (test-marco-*@test.example) appears, 0 removeChild errors, 0 pageerrors, 0 console errors, no ErrorBoundary",
+    "frontend_rep_list_columns": "PASS — headers: [Agency, Representative, Country, Active, Pending, Approved, Last activity, Status]; Victor row shows 8 / 9 / 12",
+    "frontend_crm_profile": "PASS — rep-identity(8 fields), rep-kpis(4 cards), crm-tabs(4 tabs: history/campaigns/notifications/timeline) all render; tab switching does not crash",
+    "frontend_history_filters": "PASS — all 8 chips (all/banner/sponsorship/approved/pending_review/revision_requested/rejected/archived) present and clickable",
+    "frontend_edit_dialog": "PASS — edit-rep-dialog opens with prefilled data, edit-rep-submit closes dialog cleanly, no removeChild",
+    "frontend_admin_routes_regression": "PASS — /admin, /admin/proposals-review, /admin/reports, /admin/audit-log, /admin/inventory, /admin/tv-projects — 0 ErrorBoundary",
+    "frontend_rep_routes_regression": "PASS — /rep, /rep/banners, /rep/sponsorships, /rep/tv, /rep/notifications — 0 ErrorBoundary, 0 console errors",
+    "frontend_sidebar_labels": "PASS — 'Commerce' brand and 'Project Proposals' menu label present"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration18.py",
+    "/app/test_reports/pytest/iteration18.xml"
+  ],
+  "action_items": [
+    "(LOW) Fix relTime() in Representatives.jsx line ~187 to guard against negative secs — display 'just now' or clamp to 0 for future-dated timestamps."
+  ],
+  "critical_code_review_comments": [
+    "Fix for removeChild race confirmed effective: native <select> + setTimeout(0) before load() works — 0 removeChild events across create + edit flows.",
+    "RepresentativeProfile.jsx (309 lines) is close to limit; consider extracting EditRepDialog and Tabs into subcomponents if it grows further.",
+    "representatives.py list_reps performs N+1 aggregation (one _stats call per rep). Fine for <500 reps but consider single aggregation pipeline for scale."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration18.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all targeted flows pass; 1 cosmetic negative-relative-time bug reported)"},
+  "test_credentials": "Admin: admin@independentmedia.hub / Admin2026! ; Rep: victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "Created and cleaned up TEST_ prefixed rep in backend test; UI test created 'test-marco-<ts>@test.example' rep (still present, not cleaned up — main agent can delete via DELETE /api/admin/representatives/{id}).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 18 fully verified: removeChild bug eliminated, CRM profile complete with 4 tabs + inline admin actions, list columns enriched with active/pending/approved/last_activity. Only outstanding cosmetic issue: relTime() shows negative seconds when last_activity_at > client clock. All backend enrichment endpoints stable.",
+  "rca of the issue": "Original removeChild root cause = Radix Select portal being unmounted mid-transition when parent re-rendered the reps table synchronously on success. Fix: (1) native <select> for country (no portal), (2) setOpen(false) → setTimeout(0) → load() so Radix Dialog unmount completes before setReps() replaces the tree. Verified: 0 removeChild events across rep create AND edit dialog flows."
+}
