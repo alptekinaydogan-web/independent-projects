@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only regression test for iteration 17: InventoryCatalog tile click-through wiring for admin+rep, new rep sidebar 'Banner Inventory' entry, and no regressions to iteration 16 flows. All targeted flows PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "admin_inventory_tile_click": "PASS - /admin/inventory renders 90 tiles; first tile (global__hero) has href=/admin/inventory/global__hero; click navigates to detail page; calendar-grid + inventory-status testids rendered; reservations & offers sections visible.",
+    "rep_sidebar_banner_inventory": "PASS - nav-rep-inventory present with label 'Banner Inventory'.",
+    "rep_inventory_tile_click": "PASS - /rep/inventory renders 90 tiles; href=/rep/inventory/global__hero; click navigates to detail; calendar-grid + inventory-status rendered; no ErrorBoundary trigger.",
+    "regression_representative_profile": "PASS - /admin/representatives/{id} loads without ErrorBoundary.",
+    "regression_sidebar_labels": "PASS - 'Commercial' (note: sidebar section is 'Commercial', request said 'Commerce'; header brand text is 'Commerce') and 'Project Proposals' both present.",
+    "regression_login_copy": "PASS - Login.jsx line 53 contains 'Private Partner Platform' (rendered uppercase via CSS imh-eyebrow class). Initial case-sensitive text check was a false negative in the script."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Sidebar label under admin console reads 'Commercial' but review_request references 'Commerce' — 'Commerce' is actually the brand/console header (AppShell.jsx line 44). Both are present, no fix needed but worth noting.",
+    "InventoryCatalog role detection uses user.role check for owner/admin — consistent with AppShell logic. Good."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only per request)", "frontend": "100%"},
+  "test_credentials": "Admin: admin@independentmedia.hub / Admin2026! ; Rep: victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 17 wiring fix verified end-to-end via Playwright against public URL. Both /admin/inventory/{id} and /rep/inventory/{id} routes work, tile click-through emits correct href, and InventoryDetail renders calendar-grid + inventory-status. No regressions to representatives profile, sidebar labels, or Login copy."
+}

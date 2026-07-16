@@ -59,6 +59,7 @@ function App() {
               <Route path="/rep" element={<RepDashboard />} />
               <Route path="/rep/banners" element={<Campaigns />} />
               <Route path="/rep/banners/new" element={<CampaignBuilder />} />
+              <Route path="/rep/inventory" element={<BannerInventory />} />
               <Route path="/rep/inventory/:id" element={<InventoryDetail />} />
               <Route path="/rep/tv" element={<TVCatalog />} />
               <Route path="/rep/tv/:id" element={<TVProjectDetail />} />

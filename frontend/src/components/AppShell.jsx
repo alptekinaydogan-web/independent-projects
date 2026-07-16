@@ -76,6 +76,7 @@ export default function AppShell({ role }) {
             </Section>
             <Section label="Sell">
               <Item to={`${base}/banners`} icon={Radio} testId="nav-rep-campaigns">Banner Proposals</Item>
+              <Item to={`${base}/inventory`} icon={LayoutGrid} testId="nav-rep-inventory">Banner Inventory</Item>
               <Item to={`${base}/tv`} icon={FilmIcon} testId="nav-rep-tv">TV Sponsorships</Item>
             </Section>
             <Section label="Grow">

@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
+import { useAuth } from "@/contexts/AuthContext";
+import { ArrowUpRight } from "lucide-react";
 
 export default function InventoryCatalog() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "owner" || user?.role === "admin";
+  const base = isAdmin ? "/admin/inventory" : "/rep/inventory";
   const [data, setData] = useState({ networks: [], positions: [], items: [] });
   useEffect(() => { api.get("/inventory").then(r => setData(r.data)); }, []);
 
@@ -39,11 +45,17 @@ export default function InventoryCatalog() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {g.items.map(it => (
-                <div key={it.id} className="p-5 border-b border-r border-[#E4E4E1] last:border-r-0" data-testid={`inv-item-${it.id}`}>
-                  <div className="imh-eyebrow">{it.position_key.replace("_", " ")}</div>
-                  <div className="font-editorial text-lg mt-1">{it.position_name}</div>
+                <Link key={it.id} to={`${base}/${it.id}`}
+                      className="group p-5 border-b border-r border-[#E4E4E1] last:border-r-0 hover:bg-[#F9F9F6] block"
+                      style={{ transition: "background 120ms" }}
+                      data-testid={`inv-item-${it.id}`}>
+                  <div className="imh-eyebrow flex items-center justify-between">
+                    <span>{it.position_key.replace("_", " ")}</span>
+                    <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 text-[#0033A0]" style={{ transition: "opacity 120ms" }} />
+                  </div>
+                  <div className="font-editorial text-lg mt-1 group-hover:text-[#0033A0]" style={{ transition: "color 120ms" }}>{it.position_name}</div>
                   <div className="text-xs text-[#52525B] mt-2">{it.position_description}</div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
