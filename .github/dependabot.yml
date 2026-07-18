@@ -1,0 +1,87 @@
+version: 2
+updates:
+  # ------------------------------------------------------------------- #
+  # Frontend — npm ecosystem (Yarn Classic reads the same manifest, so  #
+  # Dependabot's `npm` ecosystem is the correct choice for detection)   #
+  # ------------------------------------------------------------------- #
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+    commit-message:
+      prefix: chore(frontend-deps)
+      include: scope
+    groups:
+      # Group compatible minor + patch updates to keep PR noise low.
+      frontend-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # React 19 major upgrade is intentionally coordinated by hand.
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      # CRA / react-scripts is on maintenance mode — pin major.
+      - dependency-name: react-scripts
+        update-types: ["version-update:semver-major"]
+
+  # ------------------------------------------------------------------- #
+  # Backend — pip                                                        #
+  # ------------------------------------------------------------------- #
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend
+    commit-message:
+      prefix: chore(backend-deps)
+      include: scope
+    groups:
+      backend-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Pydantic / FastAPI major bumps require hand-coordinated migration.
+      - dependency-name: pydantic
+        update-types: ["version-update:semver-major"]
+      - dependency-name: fastapi
+        update-types: ["version-update:semver-major"]
+      # `litellm` is pulled from a private CDN via `emergentintegrations`;
+      # Dependabot cannot resolve it and would open noisy PRs.
+      - dependency-name: litellm
+      - dependency-name: emergentintegrations
+
+  # ------------------------------------------------------------------- #
+  # GitHub Actions workflow versions                                     #
+  # ------------------------------------------------------------------- #
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore(ci)
