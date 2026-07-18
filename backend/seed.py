@@ -24,8 +24,9 @@ async def create_indexes() -> None:
     await db.tv_projects.create_index("status")
     await db.productions.create_index([("tv_project_id", 1), ("rep_id", 1)])
     await db.productions.create_index("status")
-    await db.proposals.create_index("rep_id")
-    await db.proposals.create_index("status")
+    await db.tv_projects.create_index("source")
+    await db.tv_projects.create_index("moderation_status")
+    await db.tv_projects.create_index("submitted_by_rep_id")
     await db.audit_log.create_index([("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
@@ -65,16 +66,80 @@ async def seed_categories() -> None:
 
 
 async def normalise_tv_projects() -> None:
-    """Backfill category_slug on any existing TV project document."""
+    """Backfill category_slug + source/moderation_status/published on any
+    existing TV project document."""
     await db.tv_projects.update_many(
         {"category_slug": {"$exists": False}},
         [{"$set": {"category_slug": {"$ifNull": ["$category", DEFAULT_CATEGORY_SLUG]}}}]
     )
-    # Legacy `category` string field kept in sync for backwards compatibility
     await db.tv_projects.update_many(
         {"category": {"$exists": False}},
         [{"$set": {"category": {"$ifNull": ["$category_slug", DEFAULT_CATEGORY_SLUG]}}}]
     )
+    # Unified moderation fields — anything pre-existing is treated as an
+    # approved Official Project so it stays visible in the Library.
+    await db.tv_projects.update_many({"source":            {"$exists": False}}, {"$set": {"source":            "admin"}})
+    await db.tv_projects.update_many({"moderation_status": {"$exists": False}}, {"$set": {"moderation_status": "approved"}})
+    await db.tv_projects.update_many({"published":         {"$exists": False}}, {"$set": {"published": True}})
+    await db.tv_projects.update_many({"featured":          {"$exists": False}}, {"$set": {"featured": False}})
+    await db.tv_projects.update_many({"archived":          {"$exists": False}}, {"$set": {"archived": False}})
+    await db.tv_projects.update_many({"revision_history":  {"$exists": False}}, {"$set": {"revision_history": []}})
+    await db.tv_projects.update_many({"download_assets":   {"$exists": False}}, {"$set": {"download_assets": []}})
+
+
+async def migrate_proposals_to_projects() -> None:
+    """Absorb the legacy `proposals` collection into unified `tv_projects`.
+
+    Each legacy proposal document becomes a partner-sourced project with
+    the same id (so notification / audit links remain valid). The
+    `proposals` collection is dropped afterwards.
+    """
+    if "proposals" not in await db.list_collection_names():
+        return
+    async for old in db.proposals.find({}):
+        if not old.get("id"):
+            continue
+        # Skip if already migrated
+        if await db.tv_projects.find_one({"id": old["id"]}):
+            continue
+        legacy_status = old.get("status", "in_review")
+        moderation = {
+            "approved": "approved", "rejected": "rejected",
+        }.get(legacy_status, "submitted")
+        published = moderation == "approved"
+        doc = {
+            "id": old["id"],
+            "title": old.get("title", "Untitled"),
+            "subtitle": "", "tagline": "",
+            "overview": old.get("description", ""),
+            "synopsis": old.get("description", ""),
+            "concept": "",
+            "production_format": old.get("format", "documentary"),
+            "total_episodes": int(old.get("estimated_episodes") or 0),
+            "category_slug": DEFAULT_CATEGORY_SLUG,
+            "category": DEFAULT_CATEGORY_SLUG,
+            "status": "active" if published else "draft",
+            "hero_image_url": "", "demo_video_url": "",
+            "languages": [],
+            "sponsorship_opportunities": [],
+            "download_assets": [],
+            "source": "partner",
+            "moderation_status": moderation,
+            "published": published, "featured": False, "archived": False,
+            "admin_feedback": old.get("admin_notes", ""),
+            "internal_notes": "",
+            "revision_history": [],
+            "submitted_by_rep_id":   old.get("rep_id"),
+            "submitted_by_rep_name": old.get("rep_name"),
+            "submitted_by_agency":   old.get("agency_name", ""),
+            "submitted_by_country":  old.get("country", ""),
+            "submitted_at": old.get("created_at", ""),
+            "decided_at":   old.get("decided_at", ""),
+            "created_at":   old.get("created_at", now_iso()),
+        }
+        await db.tv_projects.insert_one(doc)
+    await db.proposals.drop()
+    logger.info("migrated legacy `proposals` collection into unified tv_projects (source=partner)")
 
 
 async def seed_owner() -> None:
@@ -176,6 +241,15 @@ async def seed_tv_projects() -> None:
         s["created_at"] = now_iso()
         s["category_slug"] = DEFAULT_CATEGORY_SLUG
         s["category"] = DEFAULT_CATEGORY_SLUG  # legacy mirror
+        # Unified project envelope
+        s["source"] = "admin"
+        s["moderation_status"] = "approved"
+        s["published"] = True
+        s["featured"] = s.get("featured", False)
+        s["archived"] = False
+        s["revision_history"] = []
+        s["download_assets"] = s.get("download_assets", [])
+        s["overview"] = s.get("overview", s.get("synopsis", ""))
         await db.tv_projects.insert_one(s)
 
 
@@ -202,6 +276,7 @@ async def run_seed() -> None:
     await create_indexes()
     await seed_categories()
     await normalise_tv_projects()
+    await migrate_proposals_to_projects()
     await seed_owner()
     await seed_reps()
     await seed_tv_projects()

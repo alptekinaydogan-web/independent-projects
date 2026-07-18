@@ -128,21 +128,63 @@ const APPLICATION_BADGE = {
 };
 
 export function ProjectOverview({ project }) {
+  const kslPoints = project.key_selling_points || [];
   return (
-    <Section icon={Layers} eyebrow="01 · Overview" title="Concept & purpose" testId="section-overview">
+    <Section icon={Layers} eyebrow="01 · Executive summary" title="Overview & purpose" testId="section-overview">
+      {(project.overview || project.synopsis) && <Para>{project.overview || project.synopsis}</Para>}
+      {project.purpose && <div className="mt-4"><Para muted>{project.purpose}</Para></div>}
+      {project.why_exists && <Blockquote label="Why this project exists">{project.why_exists}</Blockquote>}
+      {kslPoints.length > 0 && (
+        <div className="mt-6" data-testid="key-selling-points">
+          <div className="imh-eyebrow" style={{ color: "#B45309" }}>Key selling points</div>
+          <ul className="mt-3 space-y-2 text-[15px] max-w-3xl list-disc pl-5">
+            {kslPoints.map((k, i) => <li key={i}>{k}</li>)}
+          </ul>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+export function ProjectConcept({ project }) {
+  if (!project.concept && !project.narrative && !project.episode_structure && !project.tone) return null;
+  return (
+    <Section icon={Layers} eyebrow="02 · Story & concept" title="Concept, narrative, tone" testId="section-concept">
       {project.concept && <Para>{project.concept}</Para>}
-      {project.synopsis && <Para muted>{project.synopsis}</Para>}
-      {project.purpose && <Blockquote label="Why this project exists">{project.purpose}</Blockquote>}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {project.narrative && <Facet label="Narrative" value={project.narrative} />}
+        {project.episode_structure && <Facet label="Episode structure" value={project.episode_structure} />}
+        {project.tone && <Facet label="Tone" value={project.tone} />}
+      </div>
+    </Section>
+  );
+}
+
+export function ProjectObjectives({ project }) {
+  const items = [
+    ["Entertainment", project.objective_entertainment],
+    ["Education",     project.objective_education],
+    ["Awareness",     project.objective_awareness],
+    ["Commercial",    project.objective_commercial],
+  ].filter(([, v]) => v);
+  if (items.length === 0) return null;
+  return (
+    <Section icon={Trophy} eyebrow="03 · Objectives" title="What this project achieves" testId="section-objectives">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {items.map(([label, value]) => <Facet key={label} label={label} value={value} />)}
+      </div>
     </Section>
   );
 }
 
 export function ProjectAudience({ project }) {
   return (
-    <Section icon={Users} eyebrow="02 · Audience" title="Target audience" testId="section-audience">
+    <Section icon={Users} eyebrow="04 · Audience" title="Target audience" testId="section-audience">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Facet label="Demographics" value={project.audience_demographics || project.target_audience || "—"} />
         <Facet label="Interests" value={project.audience_interests || "—"} />
+        {project.audience_geography && <Facet label="Geography" value={project.audience_geography} />}
+        {project.audience_viewing_habits && <Facet label="Viewing habits" value={project.audience_viewing_habits} />}
       </div>
     </Section>
   );
@@ -151,13 +193,21 @@ export function ProjectAudience({ project }) {
 export function ProjectFormat({ project }) {
   const languages = (project.languages || []).join(" · ");
   return (
-    <Section icon={Clapperboard} eyebrow="03 · Format" title="Production format" testId="section-format">
+    <Section icon={Clapperboard} eyebrow="05 · Format" title="Production format" testId="section-format">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <Facet label="Season length" value={project.total_episodes ? `${project.total_episodes} episodes` : "—"} />
-        <Facet label="Running time"  value={project.duration_minutes ? `${project.duration_minutes} minutes` : "—"} />
+        <Facet label="Episode duration" value={project.episode_duration ? `${project.episode_duration} min` : "—"} />
         <Facet label="Distribution"  value={project.distribution || "Independent TV network"} />
         <Facet label="Languages"     value={languages || "—"} />
       </div>
+      {(project.production_workflow || project.required_crew || project.locations || project.equipment) && (
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {project.production_workflow && <Facet label="Production workflow" value={project.production_workflow} />}
+          {project.required_crew       && <Facet label="Required crew"       value={project.required_crew} />}
+          {project.locations           && <Facet label="Locations"           value={project.locations} />}
+          {project.equipment           && <Facet label="Equipment"           value={project.equipment} />}
+        </div>
+      )}
       {project.production_format && <Para muted>{project.production_format}</Para>}
     </Section>
   );
@@ -168,7 +218,7 @@ const DEFAULT_SPONSORSHIP = ["Title Sponsor", "Episode Sponsor", "Product Placem
 export function ProjectSponsorship({ project }) {
   const opportunities = (project.sponsorship_opportunities?.length ? project.sponsorship_opportunities : DEFAULT_SPONSORSHIP);
   return (
-    <Section icon={Trophy} eyebrow="04 · Sponsorship" title="Sponsorship opportunities" testId="section-sponsorship">
+    <Section icon={Trophy} eyebrow="06 · Sponsorship" title="Sponsorship opportunities" testId="section-sponsorship">
       <Para muted>
         Country Partners negotiate sponsorship independently in their own market. The suggestions below are informational and reflect
         common sponsorship tiers used across the Independent Media Network. <b>No pricing is provided.</b>
@@ -181,6 +231,7 @@ export function ProjectSponsorship({ project }) {
           </div>
         ))}
       </div>
+      {project.sponsorship_rights && <div className="mt-4"><Para muted>{project.sponsorship_rights}</Para></div>}
     </Section>
   );
 }
@@ -188,7 +239,7 @@ export function ProjectSponsorship({ project }) {
 export function ProjectTechnicalSpecs({ project }) {
   const specs = project.technical_specs || {};
   return (
-    <Section icon={Sparkles} eyebrow="05 · Standards" title="Technical specifications" testId="section-tech-specs">
+    <Section icon={Sparkles} eyebrow="07 · Standards" title="Technical specifications" testId="section-tech-specs">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-6" data-testid="tech-specs">
         <Facet label="Cameras"       value={specs.cameras       || "Broadcast-grade cinema cameras"} />
         <Facet label="Resolution"    value={specs.resolution    || "3840×2160 UHD · minimum 1920×1080 HD"} />
@@ -206,14 +257,15 @@ export function ProjectTechnicalSpecs({ project }) {
 export function ProjectBrandGuidelines({ project }) {
   const brand = project.brand_guidelines || {};
   return (
-    <Section icon={Palette} eyebrow="06 · Brand" title="Brand guidelines" testId="section-brand">
+    <Section icon={Palette} eyebrow="08 · Brand" title="Brand guidelines" testId="section-brand">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-6" data-testid="brand-guidelines">
         <Facet label="Logo usage"      value={brand.logo   || "Independent Projects wordmark · clear space enforced"} />
         <Facet label="Intro sequence"  value={brand.intro  || "5-second animated logo sting"} />
         <Facet label="Outro sequence"  value={brand.outro  || "10-second credits + IP wordmark"} />
         <Facet label="Music"           value={brand.music  || "Signature score · provided cue package"} />
-        <Facet label="Fonts"           value={brand.fonts  || "Playfair Display · IBM Plex Sans · IBM Plex Mono"} />
+        <Facet label="Typography"      value={brand.fonts  || "Playfair Display · IBM Plex Sans · IBM Plex Mono"} />
         <Facet label="Motion graphics" value={brand.motion || "Provided After Effects package"} />
+        {brand.colors && <Facet label="Color palette" value={brand.colors} />}
       </div>
       <Para muted>Productions from different countries must feel like they belong to one international brand.</Para>
     </Section>
@@ -233,7 +285,7 @@ const DEFAULT_DOWNLOADS = [
 export function ProjectDownloadCenter({ project }) {
   const downloads = (project.download_assets?.length ? project.download_assets : DEFAULT_DOWNLOADS);
   return (
-    <Section icon={Download} eyebrow="07 · Assets" title="Download center" testId="section-downloads">
+    <Section icon={Download} eyebrow="09 · Assets" title="Download center" testId="section-downloads">
       <Para muted>
         Every download is designed for Country Partners to customize locally. The Sponsor Presentation is editable — add your own
         logo, contact details and local sponsorship information before presenting it to potential sponsors.

@@ -224,9 +224,12 @@ class TestSystemHealth:
         r = requests.get(f"{BASE_URL}/api/admin/system/health", headers=owner_headers, timeout=15)
         assert r.status_code == 200
         counts = r.json().get("database", {}).get("counts", {})
-        for k in ("categories", "tv_projects", "productions", "proposals",
+        for k in ("categories", "tv_projects", "productions",
                   "audit_entries", "notifications"):
             assert k in counts, f"Missing count '{k}'"
+        # Post-unification: `proposals` is no longer a separate collection.
+        assert "proposals" not in counts
+        assert "partner_submissions" in counts
         for banned in ("campaigns", "sponsorships", "banner_inventory", "inventory"):
             assert banned not in counts
 

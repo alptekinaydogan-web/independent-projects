@@ -38,8 +38,10 @@ async def _rep_activity_stats(rep_id: str) -> dict:
             v = a.get(k)
             if v and (last_activity is None or v > last_activity):
                 last_activity = v
-    partner_total = await db.proposals.count_documents({"rep_id": rep_id})
-    partner_approved = await db.proposals.count_documents({"rep_id": rep_id, "status": "approved"})
+    partner_q = {"source": "partner", "submitted_by_rep_id": rep_id,
+                 "moderation_status": {"$ne": "draft"}}
+    partner_total = await db.tv_projects.count_documents(partner_q)
+    partner_approved = await db.tv_projects.count_documents({**partner_q, "moderation_status": "approved"})
     return {
         "applications_submitted": submitted,
         "applications_approved": approved,
@@ -152,9 +154,21 @@ async def rep_profile(rep_id: str, _: dict = Depends(require_admin)):
 
     # Partner project submissions (new ideas)
     partner_submissions = []
-    async for p in db.proposals.find({"rep_id": rep_id}).sort("created_at", -1).limit(50):
+    async for p in db.tv_projects.find({"source": "partner", "submitted_by_rep_id": rep_id,
+                                          "moderation_status": {"$ne": "draft"}}).sort("created_at", -1).limit(50):
         p.pop("_id", None)
-        partner_submissions.append(p)
+        # Reshape into a compact wire format for the CRM UI
+        partner_submissions.append({
+            "id": p["id"],
+            "title": p.get("title", ""),
+            "format": p.get("production_format", "documentary"),
+            "country": p.get("submitted_by_country", ""),
+            "description": p.get("overview") or p.get("synopsis", ""),
+            "status": {"approved": "approved", "rejected": "rejected"}.get(
+                p.get("moderation_status"), "in_review"),
+            "admin_notes": p.get("admin_feedback", ""),
+            "created_at": p.get("submitted_at") or p.get("created_at"),
+        })
 
     # Recent activity mix (last 30 combined)
     history = [

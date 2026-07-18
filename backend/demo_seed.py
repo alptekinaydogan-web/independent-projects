@@ -93,10 +93,14 @@ NOTIF_FIXTURES = [
 async def _wipe() -> dict:
     counts = {
         "productions":   (await db.productions.delete_many({})).deleted_count,
-        "proposals":     (await db.proposals.delete_many({})).deleted_count,
+        # Wipe only partner submissions (source=partner); official (admin) projects remain intact.
+        "proposals":     (await db.tv_projects.delete_many({"source": "partner"})).deleted_count,
         "notifications": (await db.notifications.delete_many({})).deleted_count,
         "audit_log":     (await db.audit_log.delete_many({})).deleted_count,
     }
+    # Also nuke the legacy `proposals` collection if it still exists (post-migration)
+    if "proposals" in await db.list_collection_names():
+        await db.proposals.drop()
     return counts
 
 
@@ -108,7 +112,7 @@ async def _get_actors():
 
 async def _tv_projects_list():
     projects = []
-    async for p in db.tv_projects.find({}).sort("created_at", 1):
+    async for p in db.tv_projects.find({"source": {"$ne": "partner"}}).sort("created_at", 1):
         p.pop("_id", None)
         projects.append(p)
     return projects
@@ -180,37 +184,60 @@ async def seed_demo_environment() -> dict:
     if application_docs:
         await db.productions.insert_many(application_docs)
 
-    # -------- Partner submissions --------
+    # -------- Partner submissions (unified into tv_projects) --------
     proposal_docs = []
     for status, title, fmt, months_ago, description in PARTNER_SUBMISSIONS:
         submitted_at = _months_ago(months_ago, day_offset=2)
         decided_at = ""
-        admin_notes = ""
-        if status in ("approved", "rejected"):
+        admin_feedback = ""
+        moderation = "submitted"
+        published = False
+        st = "draft"
+        if status == "approved":
+            moderation = "approved"
+            published = True
+            st = "active"
             decided_at = _iso(datetime.fromisoformat(submitted_at) + timedelta(days=4))
-            admin_notes = "Approved — added to the 2026 slate." if status == "approved" else "Not viable — parked."
+            admin_feedback = "Approved — added to the 2026 slate."
+        elif status == "rejected":
+            moderation = "rejected"
+            decided_at = _iso(datetime.fromisoformat(submitted_at) + timedelta(days=4))
+            admin_feedback = "Not viable — parked."
+        elif status == "in_review":
+            moderation = "submitted"
         doc = {
             "id": str(uuid.uuid4()),
-            "title": title, "format": fmt,
-            "country": rep.get("country", ""),
-            "description": description,
-            "estimated_episodes": 10,
-            "budget_hint_usd": 0,
-            "rep_id": rep["id"], "rep_name": rep["name"],
-            "agency_name": rep.get("agency_name", ""),
-            "status": status,
-            "admin_notes": admin_notes,
+            "title": title,
+            "subtitle": "", "tagline": "",
+            "overview": description, "synopsis": description,
+            "concept": "",
+            "production_format": fmt,
+            "total_episodes": 10,
+            "category_slug": "tv_formats", "category": "tv_formats",
+            "status": st,
+            "hero_image_url": "", "demo_video_url": "",
+            "languages": [], "sponsorship_opportunities": [], "download_assets": [],
+            "source": "partner",
+            "moderation_status": moderation,
+            "published": published, "featured": False, "archived": False,
+            "admin_feedback": admin_feedback, "internal_notes": "",
+            "revision_history": [],
+            "submitted_by_rep_id": rep["id"],
+            "submitted_by_rep_name": rep["name"],
+            "submitted_by_agency": rep.get("agency_name", ""),
+            "submitted_by_country": rep.get("country", ""),
+            "submitted_at": submitted_at,
             "decided_at": decided_at,
             "created_at": submitted_at,
         }
         proposal_docs.append(doc)
-        await _write_audit(rep, "proposal.create", "proposal", doc["id"], submitted_at,
+        await _write_audit(rep, "proposal.create", "tv_project", doc["id"], submitted_at,
                            {"title": title, "format": fmt})
         if decided_at:
-            await _write_audit(owner, f"proposal.{status}", "proposal", doc["id"], decided_at,
-                                {"admin_notes": admin_notes})
+            await _write_audit(owner, f"proposal.{status}", "tv_project", doc["id"], decided_at,
+                                {"admin_notes": admin_feedback})
     if proposal_docs:
-        await db.proposals.insert_many(proposal_docs)
+        await db.tv_projects.insert_many(proposal_docs)
 
     # -------- Audit — light platform activity --------
     await _write_audit(owner, "tv_project.status.active", "tv_project", tv_projects[0]["id"],

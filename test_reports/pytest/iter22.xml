@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="30" time="49.437" timestamp="2026-07-18T13:49:14.406931+00:00" hostname="agent-env-959ca733-680e-4df1-a975-79ba612622cf"><testcase classname="tests.test_project_library.TestCategories" name="test_list_categories" time="0.501" /><testcase classname="tests.test_project_library.TestCategories" name="test_get_category_by_slug" time="0.105" /><testcase classname="tests.test_project_library.TestProjectLibrary" name="test_list_projects_admin_shape" time="0.097" /><testcase classname="tests.test_project_library.TestProjectLibrary" name="test_list_projects_rep_only_active" time="0.433" /><testcase classname="tests.test_project_library.TestProjectLibrary" name="test_get_project_detail" time="0.205" /><testcase classname="tests.test_project_library.TestApplyToProduce" name="test_apply_and_duplicate_and_decision" time="0.919" /><testcase classname="tests.test_project_library.TestPartnerSubmissions" name="test_create_and_decide" time="0.209" /><testcase classname="tests.test_project_library.TestReports" name="test_overview_has_no_banner_fields" time="0.100" /><testcase classname="tests.test_project_library.TestRepresentatives" name="test_list_has_application_stats_only" time="0.096" /><testcase classname="tests.test_project_library.TestRepresentatives" name="test_profile_shape" time="0.212" /><testcase classname="tests.test_project_library.TestSystemHealth" name="test_health_counts" time="0.103" /><testcase classname="tests.test_project_library.TestLegacyRemoved" name="test_legacy_gone[/api/campaigns]" time="0.098" /><testcase classname="tests.test_project_library.TestLegacyRemoved" name="test_legacy_gone[/api/sponsorships]" time="0.098" /><testcase classname="tests.test_project_library.TestLegacyRemoved" name="test_legacy_gone[/api/inventory]" time="0.118" /><testcase classname="tests.test_project_library.TestDemoSeed" name="test_demo_seed_owner" time="0.106" /><testcase classname="tests.test_project_library.TestDemoSeed" name="test_demo_seed_forbidden_for_rep" time="0.097" /><testcase classname="tests.test_project_editor_unified.TestListingVisibility" name="test_rep_sees_only_published_approved_active" time="0.427" /><testcase classname="tests.test_project_editor_unified.TestListingVisibility" name="test_admin_source_filter_partner" time="0.442" /><testcase classname="tests.test_project_editor_unified.TestRepProjectLifecycle" name="test_full_flow_and_permissions" time="1.702" /><testcase classname="tests.test_project_editor_unified.TestRepProjectLifecycle" name="test_admin_creates_official_project" time="0.197" /><testcase classname="tests.test_project_editor_unified.TestRepProjectLifecycle" name="test_rejected_decision" time="0.444" /><testcase classname="tests.test_project_editor_unified.TestAssets" name="test_add_and_remove_asset" time="0.702" /><testcase classname="tests.test_project_editor_unified.TestLegacyProposalAdapters" name="test_create_legacy_creates_unified" time="30.328"><failure message="requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='agency-operations-1.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/tv-projects/695b5eb7-7d28-4554-a147-430c49ea557b (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='agency-operations-1.preview.emergentagent.com', port=443) at 0xf98e89dc74d0&gt;, 'Connection to agency-operations-1.preview.emergentagent.com timed out. (connect timeout=15)'))">/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:204: in _new_conn
+    sock = connection.create_connection(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:85: in create_connection
+    raise err
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:73: in create_connection
+    sock.connect(sa)
+E   TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:788: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:488: in _make_request
+    raise new_e
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:464: in _make_request
+    self._validate_conn(conn)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1106: in _validate_conn
+    conn.connect()
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:759: in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:213: in _new_conn
+    raise ConnectTimeoutError(
+E   urllib3.exceptions.ConnectTimeoutError: (&lt;HTTPSConnection(host='agency-operations-1.preview.emergentagent.com', port=443) at 0xf98e89dc74d0&gt;, 'Connection to agency-operations-1.preview.emergentagent.com timed out. (connect timeout=15)')
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:696: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:842: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='agency-operations-1.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/tv-projects/695b5eb7-7d28-4554-a147-430c49ea557b (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='agency-operations-1.preview.emergentagent.com', port=443) at 0xf98e89dc74d0&gt;, 'Connection to agency-operations-1.preview.emergentagent.com timed out. (connect timeout=15)'))
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_project_editor_unified.py:277: in test_create_legacy_creates_unified
+    detail = requests.get(f"{BASE_URL}/api/tv-projects/{pid}",
+/root/.venv/lib/python3.11/site-packages/requests/api.py:87: in get
+    return request("get", url, params=params, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/api.py:71: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:651: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:784: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:717: in send
+    raise ConnectTimeout(e, request=request)
+E   requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='agency-operations-1.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/tv-projects/695b5eb7-7d28-4554-a147-430c49ea557b (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='agency-operations-1.preview.emergentagent.com', port=443) at 0xf98e89dc74d0&gt;, 'Connection to agency-operations-1.preview.emergentagent.com timed out. (connect timeout=15)'))</failure></testcase><testcase classname="tests.test_project_editor_unified.TestMigration" name="test_no_separate_proposals_collection" time="3.256" /><testcase classname="tests.test_project_editor_unified.TestReports" name="test_reports_overview_shape" time="0.099" /><testcase classname="tests.test_project_editor_unified.TestRepProfile" name="test_profile_has_partner_submissions" time="0.209" /><testcase classname="tests.test_project_editor_unified.TestLegacyRemoved" name="test_legacy_gone[/api/campaigns]" time="0.096" /><testcase classname="tests.test_project_editor_unified.TestLegacyRemoved" name="test_legacy_gone[/api/sponsorships]" time="0.089" /><testcase classname="tests.test_project_editor_unified.TestLegacyRemoved" name="test_legacy_gone[/api/inventory]" time="7.308" /><testcase classname="tests.test_project_editor_unified.TestPermissionMatrix" name="test_admin_can_always_edit" time="0.475" /></testsuite></testsuites>

@@ -1,11 +1,14 @@
 """Pydantic models used across Independent Projects routers.
 
-Post-cleanup: banner/sponsorship marketplace models have been removed.
-The platform now revolves exclusively around the Project Library
-(TV Formats today, extensible to Events / Podcasts / etc. tomorrow),
-the Apply-to-Produce workflow, and Partner project submissions.
+Post-unification: every project (whether created directly by an Admin or
+submitted by a Country Partner) lives in the same `tv_projects`
+collection and shares one Project model. Distinction is carried by
+`source` ("admin" | "partner") and `moderation_status`
+("draft" | "submitted" | "revision_requested" | "approved" | "rejected").
+Approved partner submissions become Official Projects in-place — no
+recreation.
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, EmailStr
 
 
@@ -46,60 +49,120 @@ class RepresentativeUpdate(BaseModel):
     password: Optional[str] = None
 
 
-# ---- Project Library — modular project package ----
-# Category slug is stored as an entity reference (`category_slug`) rather than
-# a free-text value, so future categories (Events, Podcasts, Documentaries,
-# ...) can be introduced without a schema change.
+# ---- Unified Project model ----
 class TVProjectCreate(BaseModel):
+    # Basic
     title: str
+    subtitle: Optional[str] = ""
     tagline: Optional[str] = ""
-    synopsis: str
+    category_slug: Optional[str] = "tv_formats"
+    status: Optional[str] = "draft"        # visibility: active | draft | closed
     hero_image_url: Optional[str] = ""
     demo_video_url: Optional[str] = ""
-    target_audience: Optional[str] = ""
-    distribution: Optional[str] = ""
-    languages: List[str] = []
-    total_episodes: int
-    sponsorship_rights: Optional[str] = ""
-    status: str = "active"  # active | draft | closed
-    # Reference to a category entity (default seed = "tv_formats")
-    category_slug: Optional[str] = "tv_formats"
-    duration_minutes: Optional[int] = None
-    difficulty: Optional[str] = ""             # entry | intermediate | advanced
-    concept: Optional[str] = ""
+    gallery: Optional[List[str]] = None
+
+    # Executive Summary
+    overview: Optional[str] = ""
     purpose: Optional[str] = ""
+    why_exists: Optional[str] = ""
+    key_selling_points: Optional[List[str]] = None
+
+    # Story & Concept
+    concept: Optional[str] = ""
+    narrative: Optional[str] = ""
+    episode_structure: Optional[str] = ""
+    tone: Optional[str] = ""
+
+    # Legacy synopsis kept in sync with overview for backward compat
+    synopsis: Optional[str] = ""
+
+    # Objectives
+    objective_entertainment: Optional[str] = ""
+    objective_education: Optional[str] = ""
+    objective_awareness: Optional[str] = ""
+    objective_commercial: Optional[str] = ""
+
+    # Target Audience
+    target_audience: Optional[str] = ""
     audience_demographics: Optional[str] = ""
     audience_interests: Optional[str] = ""
+    audience_geography: Optional[str] = ""
+    audience_viewing_habits: Optional[str] = ""
+
+    # Production Format
+    total_episodes: Optional[int] = 0
+    episode_duration: Optional[int] = None
+    production_workflow: Optional[str] = ""
+    required_crew: Optional[str] = ""
+    locations: Optional[str] = ""
+    equipment: Optional[str] = ""
+    distribution: Optional[str] = ""
+    languages: Optional[List[str]] = None
     production_format: Optional[str] = ""
-    technical_specs: Optional[dict] = None
-    brand_guidelines: Optional[dict] = None
+    difficulty: Optional[str] = ""
+
+    # Sponsorship (informational)
     sponsorship_opportunities: Optional[List[str]] = None
+    sponsorship_rights: Optional[str] = ""
+
+    # Technical Specifications
+    technical_specs: Optional[dict] = None
+
+    # Brand Guidelines
+    brand_guidelines: Optional[dict] = None
+
+    # Download Center (uploads managed via /api/projects/{id}/assets)
     download_assets: Optional[List[dict]] = None
 
 
 class TVProjectUpdate(BaseModel):
     title: Optional[str] = None
+    subtitle: Optional[str] = None
     tagline: Optional[str] = None
-    synopsis: Optional[str] = None
+    category_slug: Optional[str] = None
+    status: Optional[str] = None
     hero_image_url: Optional[str] = None
     demo_video_url: Optional[str] = None
-    target_audience: Optional[str] = None
-    distribution: Optional[str] = None
-    languages: Optional[List[str]] = None
-    total_episodes: Optional[int] = None
-    sponsorship_rights: Optional[str] = None
-    status: Optional[str] = None
-    category_slug: Optional[str] = None
-    duration_minutes: Optional[int] = None
-    difficulty: Optional[str] = None
-    concept: Optional[str] = None
+    gallery: Optional[List[str]] = None
+
+    overview: Optional[str] = None
     purpose: Optional[str] = None
+    why_exists: Optional[str] = None
+    key_selling_points: Optional[List[str]] = None
+
+    concept: Optional[str] = None
+    narrative: Optional[str] = None
+    episode_structure: Optional[str] = None
+    tone: Optional[str] = None
+    synopsis: Optional[str] = None
+
+    objective_entertainment: Optional[str] = None
+    objective_education: Optional[str] = None
+    objective_awareness: Optional[str] = None
+    objective_commercial: Optional[str] = None
+
+    target_audience: Optional[str] = None
     audience_demographics: Optional[str] = None
     audience_interests: Optional[str] = None
+    audience_geography: Optional[str] = None
+    audience_viewing_habits: Optional[str] = None
+
+    total_episodes: Optional[int] = None
+    episode_duration: Optional[int] = None
+    production_workflow: Optional[str] = None
+    required_crew: Optional[str] = None
+    locations: Optional[str] = None
+    equipment: Optional[str] = None
+    distribution: Optional[str] = None
+    languages: Optional[List[str]] = None
     production_format: Optional[str] = None
+    difficulty: Optional[str] = None
+
+    sponsorship_opportunities: Optional[List[str]] = None
+    sponsorship_rights: Optional[str] = None
+
     technical_specs: Optional[dict] = None
     brand_guidelines: Optional[dict] = None
-    sponsorship_opportunities: Optional[List[str]] = None
     download_assets: Optional[List[dict]] = None
 
 
@@ -107,10 +170,34 @@ class TVProjectStatusUpdate(BaseModel):
     status: str  # active | draft | closed
 
 
+class ProjectModerationBody(BaseModel):
+    decision: str  # approved | rejected | revision_requested
+    admin_feedback: Optional[str] = ""
+    internal_notes: Optional[str] = ""
+
+
+class ProjectPublishBody(BaseModel):
+    published: bool
+
+
+class ProjectFeatureBody(BaseModel):
+    featured: bool
+
+
+class ProjectArchiveBody(BaseModel):
+    archived: bool
+
+
+class ProjectAssetAdd(BaseModel):
+    label: str
+    url: str
+    filetype: Optional[str] = ""
+    storage_path: Optional[str] = ""
+    original_filename: Optional[str] = ""
+
+
 class ApplyToProduceBody(BaseModel):
-    # Route reads the project id from the URL path (`/tv-projects/{id}/apply`);
-    # this field is preserved for backwards compatibility but is optional.
-    tv_project_id: Optional[str] = None
+    tv_project_id: Optional[str] = None  # optional; route reads id from path
     message: Optional[str] = ""
     target_launch_date: Optional[str] = ""
 
@@ -121,18 +208,20 @@ class ApplicationDecisionBody(BaseModel):
     internal_notes: Optional[str] = ""
 
 
-# ---- Partner project submissions (new project ideas from Country Partners) ----
+# ---- Legacy proposal wire model ----
+# Kept for backward compat with the old /api/proposals endpoint. New writes
+# create a unified Project (source=partner) with a mapped subset of fields.
 class ProposalCreate(BaseModel):
     title: str
-    format: str
-    country: str
-    description: str
-    estimated_episodes: int
+    format: Optional[str] = "documentary"
+    country: Optional[str] = ""
+    description: Optional[str] = ""
+    estimated_episodes: Optional[int] = 0
     budget_hint_usd: Optional[float] = 0
 
 
 class ProposalDecision(BaseModel):
-    status: str  # approved | rejected | in_review (revision requested)
+    status: str  # approved | rejected | in_review (== revision requested)
     admin_notes: Optional[str] = ""
 
 

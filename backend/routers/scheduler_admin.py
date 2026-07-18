@@ -38,8 +38,8 @@ async def system_health(_: dict = Depends(require_admin)):
             "users":         await db.users.count_documents({}),
             "categories":    await db.categories.count_documents({}),
             "tv_projects":   await db.tv_projects.count_documents({}),
+            "partner_submissions": await db.tv_projects.count_documents({"source": "partner"}),
             "productions":   await db.productions.count_documents({}),
-            "proposals":     await db.proposals.count_documents({}),
             "audit_entries": await db.audit_log.count_documents({}),
             "notifications": await db.notifications.count_documents({}),
         }

@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 22 backend + frontend verification of the UNIFIED project editor + partner-submission in-place review. Wrote /app/backend/tests/test_project_editor_unified.py (16 tests) covering: rep listing visibility (published+approved+active+non-archived), admin ?source=partner filter, rep POST /projects creates partner draft, admin POST creates official approved+published project, PATCH permission matrix (owner draft/revision_requested edits succeed, submitted rep gets 403, admin always edits, published/status flip is stripped from rep payload), POST /projects/{id}/submit transitions to submitted, PATCH /admin/projects/{id}/moderate approved (auto-publishes + activates), revision_requested, rejected, publish/feature/archive toggles (archived hides from rep), assets add + remove roundtrip, GET /my-projects, legacy /proposals adapter (POST + admin PATCH in_review->revision_requested + approved auto-publish), system-health counters no longer expose `proposals` and DO expose partner_submissions, reports overview shape (partner_submissions.total + project_library.active/draft/closed), rep profile has partner_submissions, and legacy /api/campaigns · /api/sponsorships · /api/inventory still return 404. 16/16 iter22 tests pass. Also updated the iter21 regression file (test_project_library.py) — the health-count check now expects `proposals` to be ABSENT and `partner_submissions` to be present (matches unified model). Combined suite: 29/30 passing (1 flake was a preview-URL ConnectTimeout — passes on retry in isolation). Frontend Playwright verification: admin/tv-projects renders tv-source-filter + filter-official/partner/featured/archived + new-project-btn + tv-card-<id> (9 cards). Card click routes to /admin/tv-projects/{id} which shows the FULL editor (editor-meta-strip, editor-save, section-basic, section-summary, field-title). admin/proposals renders partner-filters + filter-pending + partner-submission-<id> (3 cards) and clicking a partner card lands on /admin/tv-projects/{id} with the moderation-strip visible (moderate-approve/revise/reject). Rep flow verified: /rep/proposals renders rep-new-project + 5 my-project-<id> cards, /rep/projects/new renders full editor (editor-save + field-title/overview + section-basic/summary/story/objectives) and correctly hides the moderation-strip. editor-submit is only rendered once a draft exists (canSubmit gate) — expected. Fixed a legit 500 bug found during testing: POST /api/projects created rep drafts with download_assets=null which caused $push to fail with WriteError 'must be an array but is of type null'. Added defensive list-init in routers/tv.py::create_project for download_assets/gallery/languages/sponsorship_opportunities/key_selling_points.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/projects/{id}/assets", "issue": "Was returning 500 because rep-created projects persisted download_assets=null; $push then rejected. Fixed in routers/tv.py by initialising list-typed optional fields to [] on create."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_project_editor_unified.py",
+    "/app/backend/tests/test_project_library.py",
+    "/app/test_reports/pytest/iter22.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/tv.py::create_project initialised list-typed Pydantic optional fields to None because model_dump() preserves defaults — fixed by coercing to []. Consider making the same coercion at the model level (default_factory=list) for TVProjectCreate to prevent the class of bug for future writers of the same document.",
+    "routers/tv.py::list_tv_projects still performs 2 count_documents per project (pending + approved) — same N+1 warning as iter21; benign at current volume.",
+    "ProjectEditor.jsx uses `canSubmit` to gate editor-submit which requires an existing project id — reps must Save draft first before the Submit-for-review button appears. Behaviour is correct but a first-time rep might not realise a save is required; a subtle hint next to the Save draft button could help."
+  ],
+  "updated_files": [
+    "/app/backend/routers/tv.py",
+    "/app/backend/tests/test_project_editor_unified.py",
+    "/app/backend/tests/test_project_library.py"
+  ],
+  "success_rate": {"backend": "100% (16/16 iter22, 30/30 combined in serial run)", "frontend": "100% for the verified testids"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026! · Rep victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "test_project_editor_unified.py self-creates TEST_REP_*/TEST_ADMIN_*/TEST_REJ_*/TEST_ASSET_*/TEST_LEGACYP_*/TEST_ADMEDIT_* per run and deletes them via DELETE /api/projects/{id}. One leftover TEST_ADMEDIT project (from a preview-URL timeout mid-test) was cleaned up manually.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter22 regression file lives at /app/backend/tests/test_project_editor_unified.py. Run with `export $(grep -v '^#' /app/frontend/.env | xargs) && pytest backend/tests/test_project_editor_unified.py -v`. It covers the full unified-project + moderation + assets + legacy-proposal-adapter surface. Combined with the iter21 file it exercises 30 backend cases. Note: parallel xdist run occasionally produces a flake when the demo-seed test in iter21 runs alongside iter22 lifecycle tests — prefer -n0 for stability. All required data-testids from the review request are present on both admin and rep editor surfaces. `editor-submit` is intentionally gated behind `canSubmit` (existing draft) — the rep must click Save draft first before the Submit-for-review button becomes visible.",
+  "rca of the issue": "Assets 500: routers/tv.py::create_project passed the raw Pydantic-serialised body into Mongo without normalising None list-typed defaults. When Mongo received download_assets=null, the subsequent $push failed with 'field must be an array'. Root cause: default value on the Optional[List[dict]] field in TVProjectCreate is None (not default_factory=list). Mitigation applied: coerce list fields to [] before insert_one. Longer-term: switch models.py defaults to default_factory=list so any future insertion path is safe."
+}

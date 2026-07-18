@@ -23,6 +23,7 @@ import RepDashboard from "@/pages/rep/Dashboard";
 import TVCatalog from "@/pages/rep/TVCatalog";
 import TVProjectDetail from "@/pages/rep/TVProjectDetail";
 import SubmitProposal from "@/pages/rep/SubmitProposal";
+import ProjectDraft from "@/pages/rep/ProjectDraft";
 import RepReports from "@/pages/rep/Reports";
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
               <Route path="/admin/representatives/:id" element={<RepresentativeProfile />} />
               <Route path="/admin/proposals-review" element={<ApplicationsReview />} />
               <Route path="/admin/tv-projects" element={<TVProjects />} />
+              <Route path="/admin/tv-projects/new" element={<TVProjectEdit />} />
               <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
               <Route path="/admin/proposals" element={<Proposals />} />
               <Route path="/admin/reports" element={<AdminReports />} />
@@ -53,7 +55,9 @@ function App() {
               <Route path="/rep/tv" element={<TVCatalog />} />
               <Route path="/rep/tv/:id" element={<TVProjectDetail />} />
               <Route path="/rep/proposals" element={<SubmitProposal />} />
-              <Route path="/rep/proposals/new" element={<SubmitProposal />} />
+              <Route path="/rep/projects/new" element={<ProjectDraft />} />
+              <Route path="/rep/projects/:id" element={<ProjectDraft />} />
+              <Route path="/rep/proposals/new" element={<ProjectDraft />} />
               <Route path="/rep/notifications" element={<Notifications />} />
               <Route path="/rep/reports" element={<RepReports />} />
             </Route>

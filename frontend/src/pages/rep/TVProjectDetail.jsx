@@ -2,24 +2,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "@/lib/api";
 import {
-  ProjectHero,
-  ProjectOverview,
-  ProjectAudience,
-  ProjectFormat,
-  ProjectSponsorship,
-  ProjectTechnicalSpecs,
-  ProjectBrandGuidelines,
-  ProjectDownloadCenter,
-  ProjectApplyToProduce,
+  ProjectHero, ProjectOverview, ProjectConcept, ProjectObjectives,
+  ProjectAudience, ProjectFormat, ProjectSponsorship,
+  ProjectTechnicalSpecs, ProjectBrandGuidelines,
+  ProjectDownloadCenter, ProjectApplyToProduce,
 } from "@/components/project/ProjectBlocks";
 
 /**
- * TVProjectDetail — modular project page for the "TV Formats" category.
- *
- * The page is composed entirely of reusable blocks from
- * `components/project/ProjectBlocks.jsx`. Future categories (Events,
- * Podcasts, Documentaries, Research Projects, Co-Productions) reuse the
- * same blocks and add or omit category-specific sections as needed.
+ * Rep's read-only project page — modular composition of ProjectBlocks.
+ * Sections gracefully collapse when data is missing.
  */
 export default function TVProjectDetail() {
   const { id } = useParams();
@@ -49,6 +40,8 @@ export default function TVProjectDetail() {
 
       <div className="px-10 py-14 space-y-14 max-w-6xl">
         <ProjectOverview project={project} />
+        <ProjectConcept project={project} />
+        <ProjectObjectives project={project} />
         <ProjectAudience project={project} />
         <ProjectFormat project={project} />
         <ProjectSponsorship project={project} />
@@ -58,8 +51,7 @@ export default function TVProjectDetail() {
       </div>
 
       <ProjectApplyToProduce open={applyOpen} onOpenChange={setApplyOpen}
-                              project={project}
-                              onSubmitted={reload} />
+                              project={project} onSubmitted={reload} />
     </div>
   );
 }
