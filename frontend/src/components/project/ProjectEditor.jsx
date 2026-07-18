@@ -374,6 +374,11 @@ export default function ProjectEditor({ projectId, mode, onSaved }) {
               <Send size={14} className="mr-2" /> Submit for review
             </Button>
           )}
+          {!isAdmin && !projectId && (
+            <span className="text-[11px] text-[#52525B] italic" data-testid="submit-hint">
+              Save your draft first, then a Submit for review button will appear here.
+            </span>
+          )}
           {isAdmin && project && (
             <>
               <Button size="sm" onClick={togglePublish} data-testid="editor-publish" variant="outline" className="rounded-none">

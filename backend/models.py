@@ -9,7 +9,7 @@ Approved partner submissions become Official Projects in-place — no
 recreation.
 """
 from typing import List, Optional, Any
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginBody(BaseModel):
@@ -59,13 +59,13 @@ class TVProjectCreate(BaseModel):
     status: Optional[str] = "draft"        # visibility: active | draft | closed
     hero_image_url: Optional[str] = ""
     demo_video_url: Optional[str] = ""
-    gallery: Optional[List[str]] = None
+    gallery: List[str] = Field(default_factory=list)
 
     # Executive Summary
     overview: Optional[str] = ""
     purpose: Optional[str] = ""
     why_exists: Optional[str] = ""
-    key_selling_points: Optional[List[str]] = None
+    key_selling_points: List[str] = Field(default_factory=list)
 
     # Story & Concept
     concept: Optional[str] = ""
@@ -97,22 +97,22 @@ class TVProjectCreate(BaseModel):
     locations: Optional[str] = ""
     equipment: Optional[str] = ""
     distribution: Optional[str] = ""
-    languages: Optional[List[str]] = None
+    languages: List[str] = Field(default_factory=list)
     production_format: Optional[str] = ""
     difficulty: Optional[str] = ""
 
     # Sponsorship (informational)
-    sponsorship_opportunities: Optional[List[str]] = None
+    sponsorship_opportunities: List[str] = Field(default_factory=list)
     sponsorship_rights: Optional[str] = ""
 
     # Technical Specifications
-    technical_specs: Optional[dict] = None
+    technical_specs: dict = Field(default_factory=dict)
 
     # Brand Guidelines
-    brand_guidelines: Optional[dict] = None
+    brand_guidelines: dict = Field(default_factory=dict)
 
     # Download Center (uploads managed via /api/projects/{id}/assets)
-    download_assets: Optional[List[dict]] = None
+    download_assets: List[dict] = Field(default_factory=list)
 
 
 class TVProjectUpdate(BaseModel):

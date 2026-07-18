@@ -48,20 +48,28 @@ No banner marketplace. No pricing. No bidding. Commercial relationship with the 
 
 Legacy `campaigns`, `sponsorships`, `banner_inventory` collections are dropped on startup.
 
-## 6. Implemented (Iteration 21 — 2026-02-25)
-- Full backend cleanup: removed banner marketplace routers (campaigns, inventory), PDF generation, network data, proposal history, scheduler.
-- Removed banner-era frontend pages (InventoryCatalog, InventoryDetail, Campaigns, CampaignBuilder, Sponsorships, ProposalHistoryDrawer, DuplicateProposalDialog, old ProposalsReview).
-- Added `routers/categories.py` + seeded `tv_formats` document.
-- Rewrote `tv.py`, `reports.py`, `representatives.py`, `models.py`, `server.py`, `seed.py`, `demo_seed.py`, `scheduler_admin.py`, `email_service.py`.
-- Rewrote frontend dashboards, reports, catalog, TVProjectDetail (modular), RepresentativeProfile.
-- Added `pages/admin/ApplicationsReview.jsx` for the Apply-to-Produce review workflow.
-- 16/16 backend tests pass. 100% frontend Playwright flows pass.
+## 6. Implemented
+
+### Iteration 22 — 2026-02-25 · Unified Project Editor + In-Place Partner Review
+- **One editor everywhere.** New `components/project/ProjectEditor.jsx` — the single React component used by both Admins (`/admin/tv-projects/new` and `/admin/tv-projects/{id}`) and Country Partners (`/rep/projects/new` and `/rep/projects/{id}`). Sections: Basic Info · Executive Summary · Story & Concept · Objectives · Target Audience · Production Format · Sponsorship (informational) · Technical Specifications · Brand Guidelines · Download Center · Revision History.
+- **Unified data model.** Admin projects and partner submissions now share `tv_projects`. Distinction lives in `source` (admin | partner) and `moderation_status` (draft | submitted | revision_requested | approved | rejected). Approved partner submissions become Official Projects in place — no recreation. Legacy `proposals` collection migrated on startup.
+- **In-place partner review.** `/admin/proposals` renders a card inbox that links straight to the FULL editor with an inline moderation strip (Approve / Request revision / Reject).
+- **Moderation controls.** New endpoints: `PATCH /admin/projects/{id}/moderate`, `.../publish`, `.../feature`, `.../archive`. Rep-owned draft lifecycle: `POST /projects`, `PATCH /projects/{id}`, `POST /projects/{id}/submit`, `DELETE /projects/{id}`, `POST/DELETE /projects/{id}/assets`.
+- **Rich content fields** added to the Project model: subtitle, gallery, key_selling_points, narrative, episode_structure, tone, objective_entertainment/education/awareness/commercial, audience_geography/viewing_habits, episode_duration, production_workflow, required_crew, locations, equipment, brand palette + music + motion graphics. Read view (`/rep/tv/{id}`) renders these via new `ProjectConcept` + `ProjectObjectives` modular blocks.
+- **Legacy adapters.** `/api/proposals` and `/api/admin/proposals/{id}` still function as thin adapters over the unified model (partner-source projects). Reports and CRM aggregate partner submissions from `tv_projects`.
+- 16/16 new backend tests pass (`test_project_editor_unified.py`). 30/30 combined with iter21 regression file. 100% frontend Playwright flows.
+
+### Iteration 21 — 2026-02-25 · Backend Cleanup + Categories
+- Removed banner marketplace subsystem (campaigns/inventory/sponsorship/proposal PDF/scheduler + 5 orphaned frontend pages + 2 dialog components).
+- Added future-proof `categories` collection seeded with `tv_formats`.
+- Modular content blocks (`components/project/ProjectBlocks.jsx`).
+- New `ApplicationsReview.jsx` page.
 
 ## 7. Backlog
-- **P2** Multi-category rollout — implement Events / Podcasts / Documentaries / Research / Co-Productions when business is ready. Frontend catalog + admin category chip picker.
-- **P2** Move `list_tv_projects` counts to a single `$facet` aggregation when catalog exceeds ~200 projects.
-- **P3** System Observability upgrade — decision latency, last Resend delivery, background task history.
-- **P3** Extract sponsorship_opportunities / download_assets into their own admin edit UI (currently inline JSON on the project document).
+- **P2** Roll out additional categories (Events / Podcasts / Documentaries / Research / Co-Productions) — architecture ready.
+- **P2** Replace N+1 `count_documents` in `list_tv_projects` with a single `$facet` aggregation.
+- **P3** System Observability upgrade (decision latency, last Resend delivery).
 
 ## 8. Test Credentials
 See `/app/memory/test_credentials.md`.
+
