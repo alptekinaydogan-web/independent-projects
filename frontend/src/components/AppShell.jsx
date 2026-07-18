@@ -55,11 +55,10 @@ export default function AppShell({ role }) {
               <Item to={`${base}`} icon={LayoutGrid} testId="nav-admin-dashboard">Dashboard</Item>
               <Item to={notifBase} icon={Bell} testId="nav-admin-notifications">Notifications</Item>
             </Section>
-            <Section label="Commercial">
-              <Item to={`${base}/inventory`} icon={Globe2} testId="nav-admin-inventory">Inventory Catalog</Item>
-              <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Proposals Review</Item>
-              <Item to={`${base}/tv-projects`} icon={FilmIcon} testId="nav-admin-tv">TV Projects</Item>
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Project Proposals</Item>
+            <Section label="Project Library">
+              <Item to={`${base}/tv-projects`} icon={FilmIcon} testId="nav-admin-tv">Project Library</Item>
+              <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Submissions Review</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Partner Submissions</Item>
             </Section>
             <Section label="Network">
               <Item to={`${base}/representatives`} icon={Users} testId="nav-admin-reps">Representatives</Item>

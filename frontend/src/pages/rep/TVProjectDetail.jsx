@@ -10,13 +10,13 @@ import { toast } from "sonner";
 import { ChevronLeft, PlayCircle, Download, Send, Layers, Users, Clapperboard, Palette, Sparkles, Trophy } from "lucide-react";
 
 const SECTION_META = [
-  { key: "overview",     icon: Layers,       eyebrow: "01 · Overview",     title: "Concept & purpose" },
-  { key: "audience",     icon: Users,        eyebrow: "02 · Audience",     title: "Target audience" },
-  { key: "format",       icon: Clapperboard, eyebrow: "03 · Format",       title: "Production format" },
-  { key: "sponsorship",  icon: Trophy,       eyebrow: "04 · Sponsorship",  title: "Sponsorship opportunities" },
-  { key: "specs",        icon: Sparkles,     eyebrow: "05 · Standards",    title: "Technical specifications" },
-  { key: "brand",        icon: Palette,      eyebrow: "06 · Brand",        title: "Brand guidelines" },
-  { key: "downloads",    icon: Download,     eyebrow: "07 · Assets",       title: "Download center" },
+  { icon: Layers,       eyebrow: "01 · Overview",     title: "Concept & purpose" },
+  { icon: Users,        eyebrow: "02 · Audience",     title: "Target audience" },
+  { icon: Clapperboard, eyebrow: "03 · Format",       title: "Production format" },
+  { icon: Trophy,       eyebrow: "04 · Sponsorship",  title: "Sponsorship opportunities" },
+  { icon: Sparkles,     eyebrow: "05 · Standards",    title: "Technical specifications" },
+  { icon: Palette,      eyebrow: "06 · Brand",        title: "Brand guidelines" },
+  { icon: Download,     eyebrow: "07 · Assets",       title: "Download center" },
 ];
 
 const DEFAULT_SPONSORSHIP = ["Title Sponsor", "Episode Sponsor", "Product Placement", "Local Brand Activation"];

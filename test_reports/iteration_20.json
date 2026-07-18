@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 20 frontend retest verifying admin sidebar 'Commercial' -> 'Project Library' rewrite and TVProjectDetail key-in-spread fix. All targeted checks pass. Sidebar labels, section headings, and removal of banner/inventory nav confirmed for both admin and rep. All regression routes render without ErrorBoundary. TV detail page loads hero + 7 sections + apply flow. No React key-in-spread console warnings observed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin/Rep pages using Recharts", "issues": ["Recharts ResponsiveContainer warns 'width(-1) height(-1)' on some routes — pre-existing, unrelated to this iteration but worth investigating."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_20.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AppShell.jsx sidebar rewrite is clean and consistent with pivot; no regressions.",
+    "TVProjectDetail SECTION_META objects no longer carry a 'key' field — {...SECTION_META[i]} spread is safe; explicit key on <Section> is not needed since items are not iterated via .map (each Section is rendered by index)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (skipped per request)", "frontend": "100%"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026!; Rep victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 20 verified admin sidebar cleanup (Project Library section only: Project Library / Submissions Review / Partner Submissions) and confirmed no React key-in-spread warnings on rep TV project detail. Only console noise seen: (1) recharts container sizing warnings on some routes, (2) intermittent 401s on some background resources — pre-existing, not related to this iteration.",
+  "rca of the issue": "N/A — retest confirms iteration 19 HIGH-priority sidebar exposure of banner/inventory items has been fully addressed, and the React key-in-spread warning is gone."
+}
