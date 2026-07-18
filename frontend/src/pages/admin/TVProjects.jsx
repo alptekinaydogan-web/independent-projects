@@ -9,8 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, ArrowUpRight, ImageIcon, Video, Loader2, MoreHorizontal } from "lucide-react";
-import { usd } from "@/lib/constants";
+import { Plus, ImageIcon, Video, Loader2, MoreHorizontal } from "lucide-react";
 import { API } from "@/lib/api";
 
 const STATUSES = [
@@ -81,9 +80,9 @@ export default function TVProjects() {
   return (
     <div>
       <PageHeader
-        eyebrow="Commercial · Independent TV"
-        title="TV Projects"
-        description="Original productions available for sponsorship. Every project has its own investment-grade presentation page."
+        eyebrow="Project Library"
+        title="Projects"
+        description="Modular project packages ready for country partner production. Each project ships with a production bible, brand guidelines and download center."
         actions={
           <div className="flex gap-2 items-center">
             <div className="flex gap-1 border border-[#E4E4E1] bg-white" data-testid="tv-status-filter">
@@ -161,7 +160,7 @@ export default function TVProjects() {
                 <Link to={`/admin/tv-projects/${p.id}`}><h3 className="font-editorial text-2xl mt-2 leading-tight">{p.title}</h3></Link>
                 <p className="text-sm text-[#52525B] mt-2 line-clamp-2">{p.tagline}</p>
                 <div className="mt-4 flex items-center justify-between text-xs text-[#52525B]">
-                  <span>{(p.sponsored_episodes?.length || 0)} / {p.total_episodes} sponsored</span>
+                  <span>{p.approved_applications_count || 0} approved · {p.pending_applications_count || 0} pending</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger data-testid={`tv-menu-${p.id}`} className="text-[#52525B] hover:text-[#0A0A0A]">
                       <MoreHorizontal size={16} />

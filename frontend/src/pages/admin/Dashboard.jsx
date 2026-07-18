@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import ActionableStrip from "@/components/ActionableStrip";
-import { Link } from "react-router-dom";
-import { ArrowUpRight, Activity, Database, Mail, Clock, CalendarClock, DatabaseZap } from "lucide-react";
+import { ArrowUpRight, Activity, Database, Mail, Clock, DatabaseZap, FilmIcon, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -32,49 +32,57 @@ export default function AdminDashboard() {
                           .then(r => { if (alive) setHealth(r.data); })
                           .catch(() => {});
     load();
-    // Poll every 30s so the card stays live while the tab is open
     const id = setInterval(load, 30000);
     return () => { alive = false; clearInterval(id); };
   }, []);
 
-  const bp = d?.banner_proposals || {};
-  const tp = d?.tv_proposals || {};
+  const apps = d?.applications || {};
+  const partners = d?.partner_submissions || {};
+  const lib = d?.project_library || {};
 
   return (
     <div>
       <PageHeader
         eyebrow="Administrator Overview"
         title={`Good day, ${user?.name?.split(" ")[0] || "Admin"}.`}
-        description="Commercial activity across Independent Media Network. Review commercial proposals from representatives, monitor approved inventory, and manage editorial concepts."
+        description="Independent Projects — country partner activity across the global Project Library. Review production applications and partner project submissions."
         actions={<OwnerOnlyReseedButton />}
       />
       <div className="px-10 py-10 space-y-8">
         <ActionableStrip base="/admin" />
 
         <div>
-          <div className="imh-eyebrow mb-3">Proposals awaiting your decision</div>
+          <div className="imh-eyebrow mb-3">Awaiting your decision</div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Metric testId="metric-all-pending" label="All pending review" value={d?.all_pending_review ?? "—"} sub="Banner + TV proposals" tone={d?.all_pending_review > 0 ? "warning" : undefined} />
-            <Metric testId="metric-banner-pending" label="Banner pending" value={bp.pending_review ?? "—"} sub="Confidential offers" tone={bp.pending_review > 0 ? "warning" : undefined} />
-            <Metric testId="metric-tv-pending" label="TV pending" value={tp.pending_review ?? "—"} sub="Sponsorship offers" tone={tp.pending_review > 0 ? "warning" : undefined} />
-            <Metric testId="metric-reps-active" label="Active representatives" value={d?.total_reps_active ?? "—"} sub="Licensed agencies" />
+            <Metric testId="metric-all-pending" label="Everything to review" value={d?.all_pending_review ?? "—"}
+                    sub="Applications + partner ideas" tone={d?.all_pending_review > 0 ? "warning" : undefined} />
+            <Metric testId="metric-apps-submitted" label="Applications to produce" value={apps.submitted ?? "—"}
+                    sub="Country partners applying" tone={apps.submitted > 0 ? "warning" : undefined} />
+            <Metric testId="metric-partner-review" label="Partner submissions" value={partners.in_review ?? "—"}
+                    sub="New project ideas" tone={partners.in_review > 0 ? "warning" : undefined} />
+            <Metric testId="metric-reps-active" label="Active representatives" value={d?.total_reps_active ?? "—"}
+                    sub="Licensed country partners" />
           </div>
         </div>
 
         <div>
-          <div className="imh-eyebrow mb-3">Approved commercial activity</div>
+          <div className="imh-eyebrow mb-3">Project Library health</div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Metric testId="metric-banner-approved" label="Approved banner proposals" value={bp.approved ?? "—"} tone="positive" />
-            <Metric testId="metric-tv-approved" label="Approved sponsorships" value={tp.approved ?? "—"} tone="positive" />
-            <Metric testId="metric-banner-total" label="Total banner proposals" value={bp.total ?? "—"} sub="All statuses" />
-            <Metric testId="metric-tv-total" label="Total TV proposals" value={tp.total ?? "—"} sub="All statuses" />
+            <Metric testId="metric-lib-active" label="Active projects" value={lib.active ?? "—"} tone="positive" />
+            <Metric testId="metric-lib-draft" label="Draft" value={lib.draft ?? "—"} />
+            <Metric testId="metric-lib-closed" label="Closed" value={lib.closed ?? "—"} />
+            <Metric testId="metric-apps-approved" label="Productions approved" value={apps.approved ?? "—"} tone="positive"
+                     sub="Country partners on air" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <QuickLink to="/admin/proposals-review" title="Review pending proposals" desc="Approve, request revision, or reject commercial proposals waiting for your decision." />
-          <QuickLink to="/admin/tv-projects" title="Publish a TV project" desc="Add or freeze productions in the sponsorship catalog." />
-          <QuickLink to="/admin/inventory" title="Inspect inventory catalog" desc="See the network×position products currently offered to representatives." />
+          <QuickLink to="/admin/proposals-review" title="Review applications"
+                     desc="Approve, request revision, or decline production applications waiting for your decision." />
+          <QuickLink to="/admin/tv-projects" title="Publish a new project"
+                     desc="Compose a modular project package and open it up to country partner production." />
+          <QuickLink to="/admin/proposals" title="Partner project submissions"
+                     desc="Review new project ideas submitted by country partners across the network." />
         </div>
 
         <SystemVitals health={health} />
@@ -88,12 +96,11 @@ function OwnerOnlyReseedButton() {
   const [busy, setBusy] = useState(false);
   if (user?.role !== "owner") return null;
   const reseed = async () => {
-    if (!window.confirm("Wipe all commercial data and repopulate the demo environment? Users and TV projects are preserved.")) return;
+    if (!window.confirm("Wipe operational data and repopulate the demo environment? Users and projects are preserved.")) return;
     setBusy(true);
     try {
       const r = await api.post("/admin/demo/seed");
-      toast.success(`Demo environment ready — ${r.data.created.banner_proposals} banners, ${r.data.created.sponsorship_proposals} sponsorships, ${r.data.created.notifications} notifications.`);
-      // trigger a soft reload of surrounding data
+      toast.success(`Demo environment ready — ${r.data.created.applications} applications, ${r.data.created.partner_submissions} partner submissions, ${r.data.created.notifications} notifications.`);
       setTimeout(() => window.location.reload(), 700);
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail));
@@ -124,8 +131,6 @@ function SystemVitals({ health }) {
   const emailMode = health.email?.mode || "unknown";
   const emailLive = emailMode === "live";
   const uptimeH   = health.uptime_seconds != null ? formatUptime(health.uptime_seconds) : "—";
-  const archiveDays = health.scheduler?.proposal_archive_days;
-  const reminders   = (health.scheduler?.campaign_reminder_days || []).join(" · ");
 
   return (
     <div className="imh-card p-6" data-testid="system-vitals">
@@ -145,7 +150,7 @@ function SystemVitals({ health }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Vital icon={Database} label="Database"
                 value={dbOk ? "Connected" : "Unreachable"}
                 sub={dbOk && dbLat != null ? `${dbLat} ms ping` : ""}
@@ -159,10 +164,6 @@ function SystemVitals({ health }) {
                 value={emailLive ? "Live" : "Dev fallback"}
                 sub={emailLive ? `via ${health.email.from || "resend"}` : "RESEND_API_KEY not set"}
                 tone={emailLive ? "positive" : "warning"} testId="vital-email" />
-        <Vital icon={CalendarClock} label="Scheduler"
-                value={`Archive · ${archiveDays}d`}
-                sub={reminders ? `Reminders · ${reminders}d` : "—"}
-                tone="neutral" testId="vital-scheduler" />
         <Vital icon={Activity} label="Uptime"
                 value={uptimeH}
                 sub="Since last restart"

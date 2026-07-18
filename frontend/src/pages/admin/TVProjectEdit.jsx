@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { usd } from "@/lib/constants";
 import { Trash2 } from "lucide-react";
 
 export default function TVProjectEdit() {
@@ -23,9 +22,11 @@ export default function TVProjectEdit() {
     try {
       const payload = { ...p, languages: p.languages.split(",").map(s => s.trim()).filter(Boolean),
         total_episodes: Number(p.total_episodes) };
-      delete payload.sponsored_episodes;
+      delete payload.my_application;
+      delete payload.pending_applications_count;
+      delete payload.approved_applications_count;
       await api.patch(`/admin/tv-projects/${id}`, payload);
-      toast.success("TV project updated");
+      toast.success("Project updated");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
 
@@ -56,18 +57,14 @@ export default function TVProjectEdit() {
         <F label="Total episodes"><Input type="number" value={p.total_episodes} onChange={e => setP({ ...p, total_episodes: e.target.value })} /></F>
         <F label="Sponsorship rights" full><Textarea rows={3} className="rounded-none" value={p.sponsorship_rights || ""} onChange={e => setP({ ...p, sponsorship_rights: e.target.value })} /></F>
         <div className="col-span-2 imh-card p-5">
-          <div className="imh-eyebrow">Sponsored episodes</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(p.sponsored_episodes || []).length === 0 ? (
-              <span className="text-sm text-[#52525B]">No episodes sponsored yet.</span>
-            ) : p.sponsored_episodes.map(e => (
-              <span key={e.episode} className="px-2 py-1 font-mono-imh text-xs border border-[#0A0A0A]">
-                EP {String(e.episode).padStart(3, "0")} · {e.sponsor_agency}
-              </span>
-            ))}
+          <div className="imh-eyebrow">Production applications</div>
+          <div className="mt-3 grid grid-cols-3 gap-4">
+            <div><div className="text-[10px] uppercase tracking-widest text-[#A1A1AA]">Submitted</div><div className="font-mono-imh text-2xl mt-1">{p.pending_applications_count ?? 0}</div></div>
+            <div><div className="text-[10px] uppercase tracking-widest text-[#A1A1AA]">Approved</div><div className="font-mono-imh text-2xl mt-1 text-[#166534]">{p.approved_applications_count ?? 0}</div></div>
+            <div><div className="text-[10px] uppercase tracking-widest text-[#A1A1AA]">Category</div><div className="font-mono-imh text-sm mt-1">{(p.category_slug || p.category || "tv_formats").replace(/_/g, " ")}</div></div>
           </div>
           <div className="mt-4 text-xs text-[#52525B]">
-            Available slots · <span className="font-mono-imh text-[#0A0A0A]">{Math.max(0, p.total_episodes - (p.sponsored_episodes?.length || 0))} / {p.total_episodes}</span>
+            Country partners can apply to produce this project in their territory via the rep console.
           </div>
         </div>
       </div>

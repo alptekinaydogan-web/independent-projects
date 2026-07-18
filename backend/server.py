@@ -1,7 +1,10 @@
 """Independent Projects — FastAPI application entrypoint.
 
-Assembles routers, configures CORS, runs startup seeding.
-Individual endpoint logic lives in /app/backend/routers/*.
+Post-cleanup: banner marketplace / inventory / campaigns / sponsorship
+proposal routers have been removed. The platform's commercial surface is
+now the Project Library (routers/tv.py) with the Apply-to-Produce
+workflow, Partner project submissions (routers/proposals.py), and a
+future-proof category catalog (routers/categories.py).
 """
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
@@ -9,14 +12,11 @@ from starlette.middleware.cors import CORSMiddleware
 from core import CORS_ORIGINS, client, logger
 from storage import init_storage
 from seed import run_seed
-from scheduler import start_scheduler, run_once
 from background_tasks import drain as drain_background_tasks
 
 # Routers
 from routers.auth import router as auth_router
 from routers.representatives import router as reps_router
-from routers.inventory import router as inventory_router
-from routers.campaigns import router as campaigns_router
 from routers.tv import router as tv_router
 from routers.proposals import router as proposals_router
 from routers.reports import router as reports_router
@@ -25,6 +25,7 @@ from routers.owner import router as owner_router
 from routers.audit_log import router as audit_router
 from routers.scheduler_admin import router as scheduler_router
 from routers.reference import router as reference_router
+from routers.categories import router as categories_router
 from notifications import router as notifications_router
 
 
@@ -32,10 +33,10 @@ app = FastAPI(title="Independent Projects API")
 
 # All routes under /api
 api = APIRouter(prefix="/api")
-for r in (auth_router, reps_router, inventory_router,
-          campaigns_router, tv_router, proposals_router, reports_router,
+for r in (auth_router, reps_router,
+          tv_router, proposals_router, reports_router,
           uploads_router, owner_router, audit_router, scheduler_router,
-          reference_router, notifications_router):
+          reference_router, categories_router, notifications_router):
     api.include_router(r)
 app.include_router(api)
 
@@ -56,12 +57,9 @@ async def startup():
     except Exception as e:
         logger.warning(f"Storage init failed (uploads disabled until fixed): {e}")
     await run_seed()
-    start_scheduler()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    # Await outstanding fire-and-forget tasks (e.g. approval emails) so we
-    # don't cancel an in-flight Resend delivery.
     await drain_background_tasks(timeout=10.0)
     client.close()

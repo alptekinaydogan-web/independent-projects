@@ -8,25 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, Mail, Phone, Globe2, Calendar, Radio, FilmIcon, Activity,
-          KeyRound, UserX, UserCheck, Edit3, MapPin, Bell, Send } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe2, Calendar, Activity,
+          KeyRound, UserX, UserCheck, Edit3, MapPin, Bell, Send, FilmIcon, Sparkles } from "lucide-react";
 
 const STATUS_STYLE = {
-  pending_review:     { bg: "#F5F0E1", color: "#B45309" },
-  revised:            { bg: "#EEF2FF", color: "#0033A0" },
-  approved:           { bg: "#E6F2EA", color: "#166534" },
-  rejected:           { bg: "#FBEBEB", color: "#991B1B" },
-  revision_requested: { bg: "#EEF2FF", color: "#0033A0" },
-  archived:           { bg: "#EFEEEA", color: "#52525B" },
+  submitted:          { bg: "#F5F0E1", color: "#B45309", label: "Submitted" },
+  in_review:          { bg: "#F5F0E1", color: "#B45309", label: "In review" },
+  revision_requested: { bg: "#EEF2FF", color: "#0033A0", label: "Revision requested" },
+  approved:           { bg: "#E6F2EA", color: "#166534", label: "Approved" },
+  rejected:           { bg: "#FBEBEB", color: "#991B1B", label: "Declined" },
 };
-const fmt = (n) => n == null ? "—" : `$${Number(n).toLocaleString()}`;
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" }) : "—";
 const fmtDateTime = (iso) => iso ? new Date(iso).toLocaleString(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
 
 export default function RepresentativeProfile() {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
-  const [historyFilter, setHistoryFilter] = useState("all");
   const [editOpen, setEditOpen] = useState(false);
 
   const load = () => api.get(`/admin/representatives/${id}/profile`).then(r => setProfile(r.data));
@@ -49,17 +46,12 @@ export default function RepresentativeProfile() {
   };
 
   if (!profile) return <div className="p-10 text-[#52525B] font-mono-imh text-xs" data-testid="profile-loading">Loading profile…</div>;
-  const { representative: r, banner_stats, tv_stats, active_campaigns, history, timeline, notifications } = profile;
-
-  const filteredHistory = historyFilter === "all" ? history :
-                          historyFilter === "banner" ? history.filter(h => h.kind === "banner") :
-                          historyFilter === "sponsorship" ? history.filter(h => h.kind === "sponsorship") :
-                          history.filter(h => h.status === historyFilter);
+  const { representative: r, stats, applications, partner_submissions, timeline, notifications } = profile;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Representative CRM"
+        eyebrow="Country Partner CRM"
         title={r.agency_name}
         description={`${r.name} · ${r.email}`}
         actions={
@@ -84,7 +76,7 @@ export default function RepresentativeProfile() {
         }
       />
       <div className="px-10 py-10 space-y-6" data-testid="rep-profile">
-        {/* Identity — top bar */}
+        {/* Identity */}
         <div className="imh-card p-6 grid grid-cols-2 lg:grid-cols-4 gap-6" data-testid="rep-identity">
           <Field icon={Mail} label="Email">{r.email}</Field>
           <Field icon={Phone} label="Phone">{r.phone || "—"}</Field>
@@ -98,62 +90,50 @@ export default function RepresentativeProfile() {
           <Field icon={Activity} label="Last login">{fmtDateTime(r.last_login_at)}</Field>
         </div>
 
-        {/* Commercial activity — condensed KPI strip */}
+        {/* KPI strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="rep-kpis">
-          <Kpi icon={Radio} label="Banner offers" value={banner_stats?.total || 0}
-                sub={`${banner_stats?.approved || 0} approved · ${banner_stats?.pending_review || 0} pending · ${banner_stats?.rejected || 0} rejected`} testId="kpi-banner" />
-          <Kpi icon={FilmIcon} label="TV proposals" value={tv_stats?.total || 0}
-                sub={`${tv_stats?.approved || 0} approved · ${tv_stats?.pending_review || 0} pending · ${tv_stats?.rejected || 0} rejected`} testId="kpi-tv" />
-          <Kpi icon={Send} label="Active banner campaigns" value={active_campaigns.filter(c => c.network_name).length}
-                sub="Currently live or scheduled" testId="kpi-active-banners" />
-          <Kpi icon={FilmIcon} label="Active TV sponsorships" value={tv_stats?.approved || 0}
-                sub="Approved sponsorships" testId="kpi-active-tv" />
+          <Kpi icon={Send} label="Applications submitted" value={stats?.applications_submitted || 0}
+                sub="Awaiting review" testId="kpi-apps-submitted" />
+          <Kpi icon={FilmIcon} label="Productions approved" value={stats?.applications_approved || 0}
+                sub={`${stats?.applications_total || 0} total applications`} testId="kpi-apps-approved" />
+          <Kpi icon={Sparkles} label="Partner submissions" value={stats?.partner_submissions_total || 0}
+                sub={`${stats?.partner_submissions_approved || 0} approved`} testId="kpi-partner" />
+          <Kpi icon={Activity} label="Revision cycles" value={stats?.applications_revision || 0}
+                sub={`${stats?.applications_rejected || 0} declined`} testId="kpi-cycles" />
         </div>
 
-        {/* Tabbed views: History / Timeline / Notifications / Campaigns */}
-        <Tabs defaultValue="history" className="mt-2" data-testid="crm-tabs">
+        {/* Tabbed views */}
+        <Tabs defaultValue="applications" className="mt-2" data-testid="crm-tabs">
           <TabsList className="rounded-none border border-[#E4E4E1] bg-white p-0 h-auto">
-            <TabsTrigger value="history" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-history">Proposal history</TabsTrigger>
-            <TabsTrigger value="campaigns" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-campaigns">Active campaigns</TabsTrigger>
+            <TabsTrigger value="applications" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-applications">Applications</TabsTrigger>
+            <TabsTrigger value="partner" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-partner">Partner submissions</TabsTrigger>
             <TabsTrigger value="notifications" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-notifications">Notifications</TabsTrigger>
             <TabsTrigger value="timeline" className="rounded-none data-[state=active]:bg-[#0A0A0A] data-[state=active]:text-white px-4 py-2 text-xs uppercase tracking-widest" data-testid="tab-timeline">Timeline</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="history" className="mt-4">
+          <TabsContent value="applications" className="mt-4">
             <div className="imh-card">
-              <div className="px-6 py-4 border-b border-[#E4E4E1] flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <div className="imh-eyebrow">Proposal history</div>
-                  <h3 className="font-editorial text-xl mt-1">{filteredHistory.length} entries</h3>
-                </div>
-                <div className="flex gap-2 flex-wrap" data-testid="history-filters">
-                  {["all", "banner", "sponsorship", "approved", "pending_review", "revision_requested", "rejected", "archived"].map(f => (
-                    <button key={f} onClick={() => setHistoryFilter(f)} data-testid={`filter-${f}`}
-                             className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${historyFilter === f ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-white border-[#E4E4E1] hover:border-[#0A0A0A]"}`}>
-                      {f.replace("_", " ")}
-                    </button>
-                  ))}
-                </div>
+              <div className="px-6 py-4 border-b border-[#E4E4E1]">
+                <div className="imh-eyebrow">Applications to produce</div>
+                <h3 className="font-editorial text-xl mt-1">{applications?.length || 0} entries</h3>
               </div>
-              <div className="divide-y divide-[#E4E4E1]" data-testid="history-list">
-                {filteredHistory.length === 0 && <div className="px-6 py-10 text-[#52525B] text-sm text-center">No entries match this filter.</div>}
-                {filteredHistory.map(h => {
-                  const s = STATUS_STYLE[h.status] || STATUS_STYLE.pending_review;
+              <div className="divide-y divide-[#E4E4E1]" data-testid="applications-list">
+                {(!applications || applications.length === 0) && <div className="px-6 py-10 text-[#52525B] text-sm text-center">No applications yet.</div>}
+                {(applications || []).map(a => {
+                  const s = STATUS_STYLE[a.status] || STATUS_STYLE.submitted;
                   return (
-                    <div key={`${h.kind}-${h.id}`} className="px-6 py-3 flex items-center justify-between text-sm">
+                    <div key={a.id} className="px-6 py-3 flex items-center justify-between text-sm">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="imh-eyebrow" style={{ color: h.kind === "banner" ? "#0033A0" : "#B45309" }}>
-                            {h.kind === "banner" ? "Banner" : "TV"}
-                          </span>
                           <span className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-mono-imh"
-                                style={{ background: s.bg, color: s.color }}>{h.status?.replace("_", " ")}</span>
+                                 style={{ background: s.bg, color: s.color }}>{s.label}</span>
+                          {a.target_launch_date && <span className="text-[11px] font-mono-imh text-[#52525B]">Target · {a.target_launch_date}</span>}
                         </div>
-                        <div className="mt-1 truncate">{h.title || "—"}</div>
+                        <div className="mt-1 font-editorial truncate">{a.tv_project_title}</div>
+                        {a.message && <div className="text-xs text-[#52525B] italic mt-1 line-clamp-2">"{a.message}"</div>}
                       </div>
                       <div className="text-right shrink-0 ml-3">
-                        <div className="font-mono-imh text-[11px] text-[#52525B]">{fmtDate(h.created_at)}</div>
-                        <div className="font-editorial text-sm">{fmt(h.amount)}</div>
+                        <div className="font-mono-imh text-[11px] text-[#52525B]">{fmtDate(a.created_at)}</div>
                       </div>
                     </div>
                   );
@@ -162,26 +142,31 @@ export default function RepresentativeProfile() {
             </div>
           </TabsContent>
 
-          <TabsContent value="campaigns" className="mt-4">
+          <TabsContent value="partner" className="mt-4">
             <div className="imh-card">
               <div className="px-6 py-4 border-b border-[#E4E4E1]">
-                <div className="imh-eyebrow">Active</div>
-                <h3 className="font-editorial text-xl mt-1">{active_campaigns.length} live commercial engagements</h3>
+                <div className="imh-eyebrow">Partner project submissions</div>
+                <h3 className="font-editorial text-xl mt-1">{partner_submissions?.length || 0} concepts</h3>
               </div>
-              <div className="divide-y divide-[#E4E4E1]" data-testid="active-list">
-                {active_campaigns.length === 0 && <div className="px-6 py-10 text-[#52525B] text-sm text-center">No active engagements.</div>}
-                {active_campaigns.map(c => (
-                  <div key={c.id} className="px-6 py-3 flex items-center justify-between text-sm">
-                    <div>
-                      <div className="font-editorial">{c.campaign_name}</div>
-                      <div className="text-xs text-[#52525B]">{c.network_name} · {c.position_name}</div>
+              <div className="divide-y divide-[#E4E4E1]" data-testid="partner-list">
+                {(!partner_submissions || partner_submissions.length === 0) && <div className="px-6 py-10 text-[#52525B] text-sm text-center">No project ideas submitted yet.</div>}
+                {(partner_submissions || []).map(p => {
+                  const s = STATUS_STYLE[p.status] || STATUS_STYLE.in_review;
+                  return (
+                    <div key={p.id} className="px-6 py-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-mono-imh"
+                                 style={{ background: s.bg, color: s.color }}>{s.label}</span>
+                          <span className="ml-2 imh-eyebrow">{p.format} · {p.country}</span>
+                        </div>
+                        <span className="font-mono-imh text-[11px] text-[#52525B]">{fmtDate(p.created_at)}</span>
+                      </div>
+                      <div className="mt-1 font-editorial">{p.title}</div>
+                      <div className="text-xs text-[#52525B] mt-1 line-clamp-2">{p.description}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-mono-imh text-xs text-[#52525B]">{c.start_date} → {c.end_date}</div>
-                      <div className="font-editorial mt-1">{fmt(c.offer_amount_usd)}</div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </TabsContent>

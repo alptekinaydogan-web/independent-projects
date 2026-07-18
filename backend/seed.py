@@ -1,84 +1,80 @@
-"""Startup seeding — idempotent. Now uses the network×position inventory catalog.
-Legacy campaigns/sponsorships are migrated to the proposal workflow (approved status
-preserved so already-booked work stays visible)."""
+"""Startup seeding — idempotent.
+
+Post-cleanup: banner marketplace / inventory / campaigns / sponsorships
+migrations have been removed. Legacy collections are dropped on startup
+so the platform runs on a clean data model focused on the Project Library.
+"""
 import uuid
 from pathlib import Path
-from core import db, now_iso, ADMIN_EMAIL, ADMIN_PASSWORD, logger
+from core import db, now_iso, ADMIN_EMAIL, ADMIN_PASSWORD, DEFAULT_CATEGORY_SLUG, logger
 from security import hash_password, verify_password
-from networks_data import all_inventory
+
+
+LEGACY_COLLECTIONS = (
+    "campaigns", "sponsorships", "banner_inventory",
+)
 
 
 async def create_indexes() -> None:
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
-    await db.campaigns.create_index("rep_id")
-    await db.campaigns.create_index("status")
+    await db.categories.create_index("slug", unique=True)
     await db.tv_projects.create_index("id", unique=True)
-    await db.sponsorships.create_index("rep_id")
-    await db.sponsorships.create_index("tv_project_id")
-    await db.sponsorships.create_index("status")
+    await db.tv_projects.create_index("category_slug")
+    await db.tv_projects.create_index("status")
+    await db.productions.create_index([("tv_project_id", 1), ("rep_id", 1)])
+    await db.productions.create_index("status")
     await db.proposals.create_index("rep_id")
+    await db.proposals.create_index("status")
     await db.audit_log.create_index([("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.notifications.create_index([("event_type", 1), ("entity_id", 1)])
-    await db.campaigns.create_index("end_date")
     await db.notifications.update_many({"severity": {"$exists": False}}, {"$set": {"severity": "info"}})
     await db.notifications.update_many({"archived": {"$exists": False}}, {"$set": {"archived": False}})
 
 
-async def migrate_legacy_data() -> None:
-    """Migrate iteration_1..5 data into the new proposal schema.
+async def drop_legacy_collections() -> None:
+    """Remove banner marketplace legacy collections that are no longer used."""
+    existing = await db.list_collection_names()
+    for name in LEGACY_COLLECTIONS:
+        if name in existing:
+            await db[name].drop()
+            logger.info(f"dropped legacy collection: {name}")
 
-    - old campaigns.status='confirmed' -> 'approved'
-    - drop revenue/margin/cost fields
-    - infer network/position from first available inventory item (Global Hero)
-    - old sponsorships.status='confirmed' -> 'approved'
+
+async def seed_categories() -> None:
+    """Seed the default `tv_formats` category so TV projects have a
+    referential parent. Future categories are added by inserting new
+    documents into `categories` — no code change required.
     """
-    inv = all_inventory()
-    default_inv = next((i for i in inv if i["network_key"] == "global" and i["position_key"] == "hero"),
-                       inv[0])
+    if await db.categories.find_one({"slug": DEFAULT_CATEGORY_SLUG}):
+        return
+    await db.categories.insert_one({
+        "id": str(uuid.uuid4()),
+        "slug": DEFAULT_CATEGORY_SLUG,
+        "name": "TV Formats",
+        "description": ("Original television formats — series, documentaries "
+                         "and interview programs designed for country partner "
+                         "production under the Independent Projects standard."),
+        "order": 1,
+        "is_active": True,
+        "created_at": now_iso(),
+    })
+    logger.info(f"seeded default category: {DEFAULT_CATEGORY_SLUG}")
 
-    async for c in db.campaigns.find({"status": "confirmed"}):
-        upd = {"status": "approved", "decided_at": c.get("created_at", now_iso())}
-        if "network_key" not in c:
-            upd.update({
-                "inventory_id": default_inv["id"],
-                "network_key": default_inv["network_key"],
-                "network_name": default_inv["network_name"],
-                "position_key": default_inv["position_key"],
-                "position_name": default_inv["position_name"],
-            })
-        if "offer_amount_usd" not in c:
-            upd["offer_amount_usd"] = c.get("client_total_price_usd") or 0
-        if "client_reference" not in c:
-            upd["client_reference"] = c.get("client_name", "")
-        await db.campaigns.update_one({"id": c["id"]},
-                                       {"$set": upd,
-                                        "$unset": {"per_country": "", "internal_cost_usd": "",
-                                                   "client_total_price_usd": "", "margin_usd": "",
-                                                   "total_impressions": ""}})
 
-    async for s in db.sponsorships.find({"status": "confirmed"}):
-        upd = {"status": "approved", "decided_at": s.get("created_at", now_iso())}
-        if "offer_amount_usd" not in s:
-            upd["offer_amount_usd"] = s.get("client_total_price_usd") or 0
-        if "client_reference" not in s:
-            upd["client_reference"] = s.get("client_name", "")
-        if "proposal_name" not in s:
-            upd["proposal_name"] = s.get("tv_project_title", "")
-        await db.sponsorships.update_one({"id": s["id"]},
-                                          {"$set": upd,
-                                           "$unset": {"internal_cost_usd": "",
-                                                      "client_total_price_usd": "", "margin_usd": ""}})
-
-    # Drop the legacy country-based banner_inventory collection — no longer used
-    if "banner_inventory" in await db.list_collection_names():
-        await db.banner_inventory.drop()
-
-    # Remove TV project fixed-price fields
-    await db.tv_projects.update_many({"price_per_episode_usd": {"$exists": True}},
-                                      {"$unset": {"price_per_episode_usd": ""}})
+async def normalise_tv_projects() -> None:
+    """Backfill category_slug on any existing TV project document."""
+    await db.tv_projects.update_many(
+        {"category_slug": {"$exists": False}},
+        [{"$set": {"category_slug": {"$ifNull": ["$category", DEFAULT_CATEGORY_SLUG]}}}]
+    )
+    # Legacy `category` string field kept in sync for backwards compatibility
+    await db.tv_projects.update_many(
+        {"category": {"$exists": False}},
+        [{"$set": {"category": {"$ifNull": ["$category_slug", DEFAULT_CATEGORY_SLUG]}}}]
+    )
 
 
 async def seed_owner() -> None:
@@ -104,11 +100,10 @@ async def seed_owner() -> None:
 
 
 async def seed_reps() -> None:
-    """The QA/demo environment operates with a single licensed representative
-    (Victor Laurent · Paris Media Group). A second rep record (Amelia Hart)
-    exists historically — we keep the row for referential integrity but mark
-    it inactive so the platform behaves as a one-representative environment
-    during the QA phase.
+    """The QA environment operates with a single licensed representative
+    (Victor Laurent · Paris Media Group). A second historical record is
+    preserved but marked inactive so the platform behaves as a
+    one-representative environment during QA.
     """
     samples = [
         {"email": "victor.laurent@parismedia.fr", "password": "Rep2026!",
@@ -177,7 +172,10 @@ async def seed_tv_projects() -> None:
         },
     ]
     for s in samples:
-        s["id"] = str(uuid.uuid4()); s["created_at"] = now_iso()
+        s["id"] = str(uuid.uuid4())
+        s["created_at"] = now_iso()
+        s["category_slug"] = DEFAULT_CATEGORY_SLUG
+        s["category"] = DEFAULT_CATEGORY_SLUG  # legacy mirror
         await db.tv_projects.insert_one(s)
 
 
@@ -200,8 +198,10 @@ def write_credentials_file() -> None:
 
 
 async def run_seed() -> None:
+    await drop_legacy_collections()
     await create_indexes()
-    await migrate_legacy_data()
+    await seed_categories()
+    await normalise_tv_projects()
     await seed_owner()
     await seed_reps()
     await seed_tv_projects()

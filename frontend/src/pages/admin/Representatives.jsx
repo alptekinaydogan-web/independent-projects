@@ -82,9 +82,9 @@ export default function Representatives() {
             <thead>
               <tr className="text-left border-b border-[#E4E4E1] bg-[#F9F9F6]">
                 <Th>Agency</Th><Th>Representative</Th><Th>Country</Th>
-                <Th className="text-right">Active</Th>
-                <Th className="text-right">Pending</Th>
+                <Th className="text-right">Applications</Th>
                 <Th className="text-right">Approved</Th>
+                <Th className="text-right">Ideas</Th>
                 <Th>Last activity</Th>
                 <Th>Status</Th>
               </tr>
@@ -104,9 +104,9 @@ export default function Representatives() {
                     <div className="font-mono-imh text-[10px] text-[#A1A1AA]">{r.email}</div>
                   </Td>
                   <Td className="font-mono-imh text-xs">{r.country || "—"}</Td>
-                  <Td className="text-right font-mono-imh">{r.active_engagements ?? 0}</Td>
-                  <Td className="text-right font-mono-imh">{r.pending_offers ?? 0}</Td>
-                  <Td className="text-right font-mono-imh">{r.approved_offers ?? 0}</Td>
+                  <Td className="text-right font-mono-imh">{r.applications_total ?? 0}</Td>
+                  <Td className="text-right font-mono-imh">{r.applications_approved ?? 0}</Td>
+                  <Td className="text-right font-mono-imh">{r.partner_submissions_total ?? 0}</Td>
                   <Td className="font-mono-imh text-[11px] text-[#52525B]">{relTime(r.last_activity_at || r.last_login_at)}</Td>
                   <Td>
                     <span className={`inline-flex items-center gap-2 text-xs ${r.is_active ? "text-[#166534]" : "text-[#991B1B]"}`}>

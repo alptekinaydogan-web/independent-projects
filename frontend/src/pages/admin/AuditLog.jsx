@@ -6,62 +6,43 @@ import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 
 const ACTION_LABELS = {
-  "campaign.create": "Created banner campaign",
-  "sponsorship.create": "Confirmed TV sponsorship",
-  "proposal.create": "Submitted TV proposal",
-  "proposal.approved": "Approved TV proposal",
-  "proposal.rejected": "Rejected TV proposal",
-  "proposal.in_review": "Reset proposal to review",
-  "proposal.banner.submitted":         "Submitted banner proposal",
-  "proposal.banner.approved":          "Approved banner proposal",
-  "proposal.banner.rejected":          "Rejected banner proposal",
-  "proposal.banner.revision_requested":"Requested banner revision",
-  "proposal.banner.revised":           "Rep resubmitted banner",
-  "proposal.banner.archived":          "Archived banner proposal",
-  "proposal.banner.unarchived":        "Restored banner proposal",
-  "proposal.banner.pdf_emailed":       "Emailed banner proposal PDF",
-  "proposal.banner.pdf_email_failed":  "Banner PDF email failed",
-  "proposal.sponsorship.submitted":         "Submitted TV sponsorship",
-  "proposal.sponsorship.approved":          "Approved TV sponsorship",
-  "proposal.sponsorship.rejected":          "Rejected TV sponsorship",
-  "proposal.sponsorship.revision_requested":"Requested TV revision",
-  "proposal.sponsorship.revised":           "Rep resubmitted sponsorship",
-  "proposal.sponsorship.archived":          "Archived TV sponsorship",
-  "proposal.sponsorship.unarchived":        "Restored TV sponsorship",
-  "proposal.sponsorship.pdf_emailed":       "Emailed sponsorship PDF",
-  "proposal.sponsorship.pdf_email_failed":  "Sponsorship PDF email failed",
+  "proposal.create":       "Submitted partner project",
+  "proposal.approved":     "Approved partner project",
+  "proposal.rejected":     "Rejected partner project",
+  "proposal.in_review":    "Requested revision",
+  "production.apply":                "Applied to produce",
+  "production.approved":             "Approved production",
+  "production.rejected":             "Declined production",
+  "production.revision_requested":   "Requested revision",
   "representative.create": "Created representative",
   "representative.update": "Updated representative",
   "representative.delete": "Removed representative",
-  "inventory.update": "Updated banner inventory",
-  "tv_project.create": "Published TV project",
-  "tv_project.update": "Updated TV project",
-  "tv_project.delete": "Deleted TV project",
-  "tv_project.status.active": "Reactivated TV project",
-  "tv_project.status.draft": "Moved TV project to draft",
-  "tv_project.status.closed": "Closed TV project",
+  "tv_project.create":         "Published project",
+  "tv_project.update":         "Updated project",
+  "tv_project.delete":         "Deleted project",
+  "tv_project.status.active":  "Reactivated project",
+  "tv_project.status.draft":   "Moved project to draft",
+  "tv_project.status.closed":  "Closed project",
   "admin.create": "Created administrator",
   "admin.delete": "Removed administrator",
+  "demo.seed":    "Reseeded demo environment",
 };
 
 // Predefined action groups exposed as dropdown quick filters. Values ending
 // with `*` are sent as prefix filters to the backend.
 const ACTION_PRESETS = [
   { value: "all",                                label: "All actions" },
-  { value: "proposal.banner.*",                  label: "Banner proposals (all events)" },
-  { value: "proposal.sponsorship.*",             label: "TV sponsorships (all events)" },
-  { value: "proposal.banner.approved",           label: "· Banner approvals only" },
-  { value: "proposal.sponsorship.approved",      label: "· TV approvals only" },
-  { value: "proposal.banner.pdf_email*",         label: "· Banner email deliveries" },
-  { value: "proposal.sponsorship.pdf_email*",    label: "· TV email deliveries" },
-  { value: "tv_project.*",                       label: "TV project management" },
+  { value: "production.*",                       label: "Production applications (all events)" },
+  { value: "production.approved",                label: "· Production approvals only" },
+  { value: "production.revision_requested",      label: "· Revisions requested" },
+  { value: "proposal.*",                         label: "Partner project submissions" },
+  { value: "tv_project.*",                       label: "Project library management" },
   { value: "representative.*",                   label: "Representative management" },
   { value: "admin.*",                            label: "Admin management" },
-  { value: "inventory.*",                        label: "Inventory changes" },
 ];
 
 const ACTOR_ROLES = ["all", "owner", "admin", "representative"];
-const ENTITY_TYPES = ["all", "campaign", "sponsorship", "proposal", "user", "banner_inventory", "tv_project"];
+const ENTITY_TYPES = ["all", "tv_project", "proposal", "user", "system"];
 
 function relativeTime(iso) {
   if (!iso) return "";

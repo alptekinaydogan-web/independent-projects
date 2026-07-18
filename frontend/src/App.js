@@ -9,8 +9,8 @@ import { Toaster } from "sonner";
 import Login from "@/pages/Login";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import Representatives from "@/pages/admin/Representatives";
-import BannerInventory from "@/pages/InventoryCatalog";
-import ProposalsReview from "@/pages/admin/ProposalsReview";
+import RepresentativeProfile from "@/pages/admin/RepresentativeProfile";
+import ApplicationsReview from "@/pages/admin/ApplicationsReview";
 import TVProjects from "@/pages/admin/TVProjects";
 import TVProjectEdit from "@/pages/admin/TVProjectEdit";
 import Proposals from "@/pages/admin/Proposals";
@@ -20,15 +20,10 @@ import Admins from "@/pages/admin/Admins";
 import Notifications from "@/pages/Notifications";
 
 import RepDashboard from "@/pages/rep/Dashboard";
-import CampaignBuilder from "@/pages/rep/CampaignBuilder";
-import Campaigns from "@/pages/rep/Campaigns";
 import TVCatalog from "@/pages/rep/TVCatalog";
 import TVProjectDetail from "@/pages/rep/TVProjectDetail";
-import Sponsorships from "@/pages/rep/Sponsorships";
 import SubmitProposal from "@/pages/rep/SubmitProposal";
 import RepReports from "@/pages/rep/Reports";
-import RepresentativeProfile from "@/pages/admin/RepresentativeProfile";
-import InventoryDetail from "@/pages/InventoryDetail";
 
 function App() {
   return (
@@ -43,9 +38,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/representatives" element={<Representatives />} />
               <Route path="/admin/representatives/:id" element={<RepresentativeProfile />} />
-              <Route path="/admin/inventory" element={<BannerInventory />} />
-              <Route path="/admin/inventory/:id" element={<InventoryDetail />} />
-              <Route path="/admin/proposals-review" element={<ProposalsReview />} />
+              <Route path="/admin/proposals-review" element={<ApplicationsReview />} />
               <Route path="/admin/tv-projects" element={<TVProjects />} />
               <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
               <Route path="/admin/proposals" element={<Proposals />} />
@@ -57,13 +50,8 @@ function App() {
 
             <Route element={<ProtectedRoute role="representative"><AppShell role="representative" /></ProtectedRoute>}>
               <Route path="/rep" element={<RepDashboard />} />
-              <Route path="/rep/banners" element={<Campaigns />} />
-              <Route path="/rep/banners/new" element={<CampaignBuilder />} />
-              <Route path="/rep/inventory" element={<BannerInventory />} />
-              <Route path="/rep/inventory/:id" element={<InventoryDetail />} />
               <Route path="/rep/tv" element={<TVCatalog />} />
               <Route path="/rep/tv/:id" element={<TVProjectDetail />} />
-              <Route path="/rep/sponsorships" element={<Sponsorships />} />
               <Route path="/rep/proposals" element={<SubmitProposal />} />
               <Route path="/rep/proposals/new" element={<SubmitProposal />} />
               <Route path="/rep/notifications" element={<Notifications />} />

@@ -16,25 +16,20 @@ function relativeTime(iso) {
 }
 
 const EVENT_LABEL = {
-  "proposal.approved": "Proposal approved",
-  "proposal.rejected": "Proposal declined",
-  "proposal.in_review": "Proposal revision requested",
-  "proposal.submitted": "New proposal",
-  "campaign.created": "New banner campaign",
-  "sponsorship.created": "New TV sponsorship",
-  "tv_project.launched": "TV project launched",
-  "tv_project.status.active": "TV project reopened",
-  "tv_project.status.closed": "TV project frozen",
-  "representative.suspended": "Account suspended",
-  "representative.reactivated": "Account reactivated",
+  "proposal.approved": "Partner project approved",
+  "proposal.rejected": "Partner project declined",
+  "proposal.in_review": "Partner project revision requested",
+  "proposal.submitted": "New partner project",
+  "production.applied":            "New production application",
+  "production.approved":           "Production application approved",
+  "production.rejected":           "Production application declined",
+  "production.revision_requested": "Production application needs revision",
+  "tv_project.launched":       "Project published",
+  "tv_project.status.active":  "Project reopened",
+  "tv_project.status.closed":  "Project frozen",
+  "representative.suspended":     "Account suspended",
+  "representative.reactivated":   "Account reactivated",
   "representative.password_reset": "Password reset by admin",
-  "campaign.expiring.30d": "Campaign expiring · 30 days",
-  "campaign.expiring.14d": "Campaign expiring · 14 days",
-  "campaign.expiring.7d": "Campaign expiring · 7 days",
-  "campaign.expiring.1d": "Campaign expiring · 1 day",
-  "campaign.expiring.admin.7d": "Rep campaign expiring · 7 days",
-  "campaign.expiring.admin.1d": "Rep campaign expiring · 1 day",
-  "campaign.expired": "Campaign expired",
 };
 
 const SEV_META = {
@@ -133,7 +128,7 @@ export default function Notifications() {
             <Sparkles size={20} className="mx-auto mb-3 text-[#A1A1AA]" />
             <div className="font-editorial text-2xl">You're all caught up</div>
             <div className="text-sm text-[#52525B] mt-2">
-              {tab === "archived" ? "Nothing has been archived yet." : "Meaningful events land here — proposal decisions, sponsorship activity, campaign expirations, and administrator actions affecting you."}
+              {tab === "archived" ? "Nothing has been archived yet." : "Meaningful events land here — application decisions, project launches, and administrator actions affecting you."}
             </div>
           </div>
         )}

@@ -1,4 +1,10 @@
-"""Pydantic models used across Independent Projects routers."""
+"""Pydantic models used across Independent Projects routers.
+
+Post-cleanup: banner/sponsorship marketplace models have been removed.
+The platform now revolves exclusively around the Project Library
+(TV Formats today, extensible to Events / Podcasts / etc. tomorrow),
+the Apply-to-Produce workflow, and Partner project submissions.
+"""
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
@@ -40,56 +46,10 @@ class RepresentativeUpdate(BaseModel):
     password: Optional[str] = None
 
 
-# ---- Commercial proposal for banner inventory ----
-class BannerProposalCreate(BaseModel):
-    proposal_name: str
-    client_reference: str          # rep's internal label (never disclosed to admin as identity)
-    inventory_id: str              # "{network_key}__{position_key}"
-    impressions: Optional[int] = None  # optional — subject to negotiation
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    offer_amount_usd: float        # what the rep offers to pay IMN for the placement
-    notes: Optional[str] = ""
-
-
-# ---- Commercial proposal for TV sponsorship ----
-class TVProposalCreate(BaseModel):
-    proposal_name: str
-    client_reference: str
-    tv_project_id: str
-    episode_numbers: List[int]
-    offer_amount_usd: float
-    notes: Optional[str] = ""
-
-
-class ProposalDecisionBody(BaseModel):
-    decision: str  # approved | rejected | revision_requested
-    # Split notes into two channels — reps only see `representative_feedback`
-    representative_feedback: Optional[str] = ""
-    internal_notes: Optional[str] = ""
-    # Legacy field: if set, treated as `representative_feedback` for backward compat
-    admin_notes: Optional[str] = ""
-
-
-class ProposalArchiveBody(BaseModel):
-    reason: Optional[str] = ""
-
-
-class ProposalDuplicateOverrides(BaseModel):
-    """Optional overrides carried by the rep from the duplicate action.
-    All fields are optional — omitted fields inherit the parent proposal.
-    """
-    proposal_name: Optional[str] = None
-    client_reference: Optional[str] = None
-    impressions: Optional[int] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    offer_amount_usd: Optional[float] = None
-    notes: Optional[str] = None
-    episode_numbers: Optional[List[int]] = None
-
-
-# ---- TV projects (editorial + inventory only, NO fixed price) ----
+# ---- Project Library — modular project package ----
+# Category slug is stored as an entity reference (`category_slug`) rather than
+# a free-text value, so future categories (Events, Podcasts, Documentaries,
+# ...) can be introduced without a schema change.
 class TVProjectCreate(BaseModel):
     title: str
     tagline: Optional[str] = ""
@@ -102,8 +62,8 @@ class TVProjectCreate(BaseModel):
     total_episodes: int
     sponsorship_rights: Optional[str] = ""
     status: str = "active"  # active | draft | closed
-    # Independent Projects — enriched project package fields
-    category: Optional[str] = "tv_formats"     # tv_formats | events | podcasts | documentaries | ...
+    # Reference to a category entity (default seed = "tv_formats")
+    category_slug: Optional[str] = "tv_formats"
     duration_minutes: Optional[int] = None
     difficulty: Optional[str] = ""             # entry | intermediate | advanced
     concept: Optional[str] = ""
@@ -111,10 +71,10 @@ class TVProjectCreate(BaseModel):
     audience_demographics: Optional[str] = ""
     audience_interests: Optional[str] = ""
     production_format: Optional[str] = ""
-    technical_specs: Optional[dict] = None     # cameras / resolution / frame_rates / audio / graphics / delivery
-    brand_guidelines: Optional[dict] = None    # logo / intro / outro / music / fonts / opening / closing
-    sponsorship_opportunities: Optional[List[str]] = None  # informational only
-    download_assets: Optional[List[dict]] = None           # [{label, url, filetype}]
+    technical_specs: Optional[dict] = None
+    brand_guidelines: Optional[dict] = None
+    sponsorship_opportunities: Optional[List[str]] = None
+    download_assets: Optional[List[dict]] = None
 
 
 class TVProjectUpdate(BaseModel):
@@ -129,7 +89,7 @@ class TVProjectUpdate(BaseModel):
     total_episodes: Optional[int] = None
     sponsorship_rights: Optional[str] = None
     status: Optional[str] = None
-    category: Optional[str] = None
+    category_slug: Optional[str] = None
     duration_minutes: Optional[int] = None
     difficulty: Optional[str] = None
     concept: Optional[str] = None
@@ -143,17 +103,23 @@ class TVProjectUpdate(BaseModel):
     download_assets: Optional[List[dict]] = None
 
 
+class TVProjectStatusUpdate(BaseModel):
+    status: str  # active | draft | closed
+
+
 class ApplyToProduceBody(BaseModel):
     tv_project_id: str
     message: Optional[str] = ""
     target_launch_date: Optional[str] = ""
 
 
-class TVProjectStatusUpdate(BaseModel):
-    status: str  # active | draft | closed
+class ApplicationDecisionBody(BaseModel):
+    decision: str  # approved | rejected | revision_requested
+    representative_feedback: Optional[str] = ""
+    internal_notes: Optional[str] = ""
 
 
-# ---- Editorial TV proposal (concept pitching) — unchanged from before ----
+# ---- Partner project submissions (new project ideas from Country Partners) ----
 class ProposalCreate(BaseModel):
     title: str
     format: str
@@ -164,7 +130,7 @@ class ProposalCreate(BaseModel):
 
 
 class ProposalDecision(BaseModel):
-    status: str
+    status: str  # approved | rejected | in_review (revision requested)
     admin_notes: Optional[str] = ""
 
 

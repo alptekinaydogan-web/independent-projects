@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 21 full backend + frontend verification of the banner-marketplace cleanup and Project Library / Applications / Partner Submissions / Categories pivot. Wrote /app/backend/tests/test_project_library.py — 16 pytest cases covering categories seeding, project library shape (category_slug, application counts, rep active-only filter, my_application include), Apply-to-Produce (submit + 409 duplicate + admin decision), partner submissions (create + decide), reports overview (no banner/tv_proposals keys), representatives stats (no active_engagements/pending_offers/approved_offers), rep profile (has stats/applications/partner_submissions/timeline/notifications), system health (no campaigns/sponsorships in counts), legacy /api/campaigns · /api/sponsorships · /api/inventory all 404, demo seed owner-only. 16/16 backend tests pass. Frontend flows verified via Playwright: owner sidebar shows only Project Library / Applications Review / Partner Submissions / Network — no Banner or Sponsorship or Campaign or Inventory labels; Applications Review page renders and lists production applications with Approve/Revise/Decline; Partner Submissions and Reports pages render; Representative CRM profile has Applications / Partner Submissions / Notifications / Timeline tabs. Rep sidebar exposes only nav-rep-dashboard/tv/proposals/reports. Rep catalog shows category chip and Application Submitted badges. Modular project detail renders all 7 sections (overview, audience, format, sponsorship, tech-specs, brand, downloads) plus Apply-to-Produce dialog which successfully submits and swaps CTA to Application Submitted badge.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [
+    {"screen": "Admin/Rep Reports (Recharts)", "issues": ["Pre-existing Recharts width(-1)/height(-1) warnings — not blocking, cosmetic console noise unchanged from iter 20."]}
+  ]},
+  "test_report_links": ["/app/backend/tests/test_project_library.py", "/app/test_reports/pytest/iter21.xml"],
+  "action_items": [
+    "OPTIONAL cleanup: ApplyToProduceBody model still declares tv_project_id as REQUIRED even though the route reads it from the URL path (routers/tv.py:73 vs models.py:110-113). Consider marking tv_project_id Optional or dropping it so clients don't have to double-submit the id — minor DX quirk, no functional bug."
+  ],
+  "critical_code_review_comments": [
+    "ApplyToProduceBody.tv_project_id is redundant with the {project_id} path param — recommend making it Optional to avoid 422 for clients that omit it (frontend already sends it).",
+    "routers/tv.py list_tv_projects performs N+1 count_documents per project (pending + approved + optional my_application). Fine at current volumes but should be replaced with a single $facet aggregation if the library grows past ~200 projects.",
+    "Cleanup pivot is clean end-to-end: reports overview, representatives stats, system health counts and sidebars all free of legacy banner/campaign/sponsorship/inventory references."
+  ],
+  "updated_files": ["/app/backend/tests/test_project_library.py"],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100%"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026!; Rep victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "test_project_library.py creates and self-cleans a TEST_APPLY_* project + a TEST_PARTNER_* proposal per run. One leaked TEST_APPLY project from an earlier UI verification was manually deleted via DELETE /api/admin/tv-projects/{id} at the end of the run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file lives at /app/backend/tests/test_project_library.py — run with `export $(grep -v '^#' /app/frontend/.env | xargs) && pytest backend/tests/test_project_library.py`. It exercises the full Applications and Partner Submissions life cycle plus verifies removal of legacy banner endpoints and legacy fields from reports/representatives/system-health payloads. Confirmed sidebar/testid map from the review request matches the actual UI. Recharts container warnings still present on some routes — cosmetic only.",
+  "rca of the issue": "N/A — no failures detected. Two initial pytest 422s were driven by test payload mismatches (ApplyToProduceBody expects tv_project_id even though route uses path; ProposalCreate requires format/country/description rather than logline/synopsis). Test payloads were corrected to match the current pydantic models."
+}

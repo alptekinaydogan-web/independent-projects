@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, Users, LayoutGrid, Radio, FilmIcon, Send, BarChart3, Globe2, Sparkles, ShieldCheck, ScrollText, Bell } from "lucide-react";
+import { LogOut, Users, LayoutGrid, FilmIcon, Send, BarChart3, Sparkles, ShieldCheck, ScrollText, Bell } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
@@ -57,8 +58,8 @@ export default function AppShell({ role }) {
             </Section>
             <Section label="Project Library">
               <Item to={`${base}/tv-projects`} icon={FilmIcon} testId="nav-admin-tv">Project Library</Item>
-              <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Submissions Review</Item>
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-editorial">Partner Submissions</Item>
+              <Item to={`${base}/proposals-review`} icon={Sparkles} testId="nav-admin-review">Applications Review</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-admin-partner">Partner Submissions</Item>
             </Section>
             <Section label="Network">
               <Item to={`${base}/representatives`} icon={Users} testId="nav-admin-reps">Representatives</Item>
