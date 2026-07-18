@@ -148,7 +148,7 @@ function AssetUploader({ accept, kind, currentUrl, onUploaded, icon: Icon, testI
 }
 
 // ---------- Main editor ----------
-export default function ProjectEditor({ projectId, mode, onSaved }) {
+export default function ProjectEditor({ projectId, mode, onSaved, hideModerationStrip = false }) {
   // mode: "create-admin" | "create-partner" | "edit"
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "owner";
@@ -216,6 +216,10 @@ export default function ProjectEditor({ projectId, mode, onSaved }) {
         toast.success("Saved");
         setProject(data);
         onSaved && onSaved(data);
+        if (isAdmin && hideModerationStrip) {
+          // Admin editor host — jump back to the beautiful project page.
+          setTimeout(() => nav(`/admin/tv-projects/${projectId}`), 250);
+        }
       }
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setSaving(false); }
@@ -313,7 +317,7 @@ export default function ProjectEditor({ projectId, mode, onSaved }) {
       )}
 
       {/* --- Admin moderation strip (only for partner submissions in review) --- */}
-      {isAdmin && project?.source === "partner" && (
+      {isAdmin && !hideModerationStrip && project?.source === "partner" && (
         <div className="imh-card p-4 mb-6 bg-[#FFFAF3] border-[#B45309]" data-testid="moderation-strip">
           <div className="flex items-center gap-3 flex-wrap">
             <AlertTriangle size={14} className="text-[#B45309]" />
@@ -379,7 +383,7 @@ export default function ProjectEditor({ projectId, mode, onSaved }) {
               Save your draft first, then a Submit for review button will appear here.
             </span>
           )}
-          {isAdmin && project && (
+          {isAdmin && project && !hideModerationStrip && (
             <>
               <Button size="sm" onClick={togglePublish} data-testid="editor-publish" variant="outline" className="rounded-none">
                 {project.published ? <><EyeOff size={13} className="mr-1" /> Unpublish</> : <><Eye size={13} className="mr-1" /> Publish</>}

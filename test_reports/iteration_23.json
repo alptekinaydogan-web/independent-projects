@@ -1,0 +1,23 @@
+{
+  "summary": "Iter23 verified: AdminProjectView read-first review page with sticky moderation panel is fully functional. Backend regression 14/14 pass. Frontend: admin clicks project card → lands on AdminProjectView (not editor), all public blocks + all 12 moderation controls present, mod-edit routes to /edit, editor hides publish/feature/archive, editor-save navigates back to view, editor-back-to-view link works, partner submissions inbox lands on view page, approve dialog updates moderation_status to Approved, save internal notes does not change status, rep flow intact and rep cannot access admin edit route.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_project_editor_unified.py",
+    "/app/test_reports/pytest/iter23_unified.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminProjectView.jsx conditionally renders admin-view-applications and admin-view-history only when arrays are non-empty — reviewer confirmed this is intended (same as section-concept/objectives collapse behaviour).",
+    "AdminProjectView.jsx is 300 lines — within acceptable limits.",
+    "Backend test file references REACT_APP_BACKEND_URL from env; pytest.ini could load it automatically for CI convenience (currently must be exported before running)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (all assertions passed)"},
+  "test_credentials": "admin@independentmedia.hub / Admin2026! ; victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "None — used existing seeded project e19930ac-a082-4a56-9b17-9608b0708d92. Approve action changed moderation_status from 'Submitted for review' to 'Approved' during test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter23 confirmed. Backend regression file: backend/tests/test_project_editor_unified.py (14 tests). Note: run with REACT_APP_BACKEND_URL exported (BASE_URL is empty otherwise). AdminProjectView at /admin/tv-projects/{id}, editor at /admin/tv-projects/{id}/edit. Approve dialog flow verified. Test project e19930ac is now Approved+published — subsequent iterations may want to reset if they need a pending state.",
+  "rca of the issue": "N/A — no failing tests."
+}

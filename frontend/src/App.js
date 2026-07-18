@@ -13,6 +13,7 @@ import RepresentativeProfile from "@/pages/admin/RepresentativeProfile";
 import ApplicationsReview from "@/pages/admin/ApplicationsReview";
 import TVProjects from "@/pages/admin/TVProjects";
 import TVProjectEdit from "@/pages/admin/TVProjectEdit";
+import AdminProjectView from "@/pages/admin/AdminProjectView";
 import Proposals from "@/pages/admin/Proposals";
 import AdminReports from "@/pages/admin/Reports";
 import AuditLog from "@/pages/admin/AuditLog";
@@ -42,7 +43,8 @@ function App() {
               <Route path="/admin/proposals-review" element={<ApplicationsReview />} />
               <Route path="/admin/tv-projects" element={<TVProjects />} />
               <Route path="/admin/tv-projects/new" element={<TVProjectEdit />} />
-              <Route path="/admin/tv-projects/:id" element={<TVProjectEdit />} />
+              <Route path="/admin/tv-projects/:id" element={<AdminProjectView />} />
+              <Route path="/admin/tv-projects/:id/edit" element={<TVProjectEdit />} />
               <Route path="/admin/proposals" element={<Proposals />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/audit-log" element={<AuditLog />} />

@@ -52,7 +52,7 @@ export default function TVProjects() {
       <PageHeader
         eyebrow="Project Library"
         title="Projects"
-        description="Modular project packages ready for country partner production. Admin-created Official Projects sit next to partner submissions — one library, one editor, one moderation flow."
+        description="Modular project packages ready for country partner production. Click any project to open its complete Project Page and moderate in place. Admin-created Official Projects sit next to partner submissions — one library, one editor, one moderation flow."
         actions={
           <div className="flex gap-2 items-center">
             <div className="flex gap-1 border border-[#E4E4E1] bg-white" data-testid="tv-source-filter">
