@@ -50,7 +50,20 @@ Legacy `campaigns`, `sponsorships`, `banner_inventory` collections are dropped o
 
 ## 6. Implemented
 
-### Iteration 22 — 2026-02-25 · Unified Project Editor + In-Place Partner Review
+### Iteration 23 — 2026-02-25 · Admin Read-First Review + Moderation Sidebar
+- **New Admin project surface.** `/admin/tv-projects/{id}` now renders the FULL public Project Page (Hero + every modular block, same as `/rep/tv/{id}`) with a sticky right-hand **moderation panel**. Approve · Request revision · Reject · Publish · Feature · Archive · Internal notes · Edit project · Preview as partner all live in that sidebar.
+- **Editor moved to a secondary route.** `/admin/tv-projects/{id}/edit` hosts the modular editor form. Editor's own Publish/Feature/Archive strip is suppressed here (`hideModerationStrip`) because those controls now belong to the AdminProjectView sidebar. Editor also has a `← Back to project page` link and returns the admin to the read view after Save.
+- **Partner submissions inbox** now lands on the read view (not the form). Clicking a partner card → `/admin/tv-projects/{id}` → admin reviews the complete project → decides via the sidebar.
+- **Applications & Revision history** rendered below the project page (admin-only blocks): applications by country partners, and a chronological log of every moderation decision.
+- Verified: 14/14 backend regression + 100% frontend Playwright. Report: `/app/test_reports/iteration_23.json`.
+
+### Iteration 22 — 2026-02-25 · Unified Project Editor
+- **One editor everywhere.** `components/project/ProjectEditor.jsx` — used by both Admins and Country Partners.
+- **Unified data model.** Admin projects and partner submissions share `tv_projects`, distinguished by `source` and `moderation_status`.
+- **Approving a partner submission promotes it in place** — no recreation. Legacy `proposals` collection migrated on startup.
+- New rep endpoints (POST /projects, PATCH /projects/{id}, POST /projects/{id}/submit, /assets, GET /my-projects) and admin moderation endpoints (/moderate, /publish, /feature, /archive).
+- Rich content fields added: subtitle, gallery, key_selling_points, narrative, episode_structure, tone, objectives, audience geography/viewing habits, episode duration, crew, locations, equipment, brand palette/music/motion.
+
 - **One editor everywhere.** New `components/project/ProjectEditor.jsx` — the single React component used by both Admins (`/admin/tv-projects/new` and `/admin/tv-projects/{id}`) and Country Partners (`/rep/projects/new` and `/rep/projects/{id}`). Sections: Basic Info · Executive Summary · Story & Concept · Objectives · Target Audience · Production Format · Sponsorship (informational) · Technical Specifications · Brand Guidelines · Download Center · Revision History.
 - **Unified data model.** Admin projects and partner submissions now share `tv_projects`. Distinction lives in `source` (admin | partner) and `moderation_status` (draft | submitted | revision_requested | approved | rejected). Approved partner submissions become Official Projects in place — no recreation. Legacy `proposals` collection migrated on startup.
 - **In-place partner review.** `/admin/proposals` renders a card inbox that links straight to the FULL editor with an inline moderation strip (Approve / Request revision / Reject).
