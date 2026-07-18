@@ -108,7 +108,9 @@ class TVProjectStatusUpdate(BaseModel):
 
 
 class ApplyToProduceBody(BaseModel):
-    tv_project_id: str
+    # Route reads the project id from the URL path (`/tv-projects/{id}/apply`);
+    # this field is preserved for backwards compatibility but is optional.
+    tv_project_id: Optional[str] = None
     message: Optional[str] = ""
     target_launch_date: Optional[str] = ""
 
