@@ -32,7 +32,7 @@ export default function RepDashboard() {
   return (
     <div>
       <PageHeader
-        eyebrow={`${user?.agency_name || "Independent Commerce"} · Representative`}
+        eyebrow={`${user?.agency_name || "Independent Projects"} · Representative`}
         title={`Welcome back, ${user?.name?.split(" ")[0] || ""}.`}
         description="Browse premium media inventory, submit confidential commercial proposals, and track their review across the network."
       />

@@ -1,4 +1,4 @@
-"""Independent Commerce — shared configuration, database, logger, environment."""
+"""Independent Projects — shared configuration, database, logger, environment."""
 from dotenv import load_dotenv
 from pathlib import Path
 import os

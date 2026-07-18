@@ -1,148 +1,198 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ChevronLeft, PlayCircle, Send } from "lucide-react";
+import { ChevronLeft, PlayCircle, Download, Send, Layers, Users, Clapperboard, Palette, Sparkles, Trophy } from "lucide-react";
+
+const SECTION_META = [
+  { key: "overview",     icon: Layers,       eyebrow: "01 · Overview",     title: "Concept & purpose" },
+  { key: "audience",     icon: Users,        eyebrow: "02 · Audience",     title: "Target audience" },
+  { key: "format",       icon: Clapperboard, eyebrow: "03 · Format",       title: "Production format" },
+  { key: "sponsorship",  icon: Trophy,       eyebrow: "04 · Sponsorship",  title: "Sponsorship opportunities" },
+  { key: "specs",        icon: Sparkles,     eyebrow: "05 · Standards",    title: "Technical specifications" },
+  { key: "brand",        icon: Palette,      eyebrow: "06 · Brand",        title: "Brand guidelines" },
+  { key: "downloads",    icon: Download,     eyebrow: "07 · Assets",       title: "Download center" },
+];
+
+const DEFAULT_SPONSORSHIP = ["Title Sponsor", "Episode Sponsor", "Product Placement", "Local Brand Activation"];
+const DEFAULT_DOWNLOADS = [
+  { label: "Editable Sponsor Presentation (Word)", filetype: "docx" },
+  { label: "Production Bible (PDF)",               filetype: "pdf"  },
+  { label: "Brand Guidelines (PDF)",               filetype: "pdf"  },
+  { label: "Graphics Package (ZIP)",               filetype: "zip"  },
+  { label: "Intro & Outro (MP4)",                  filetype: "mp4"  },
+  { label: "Thumbnail Templates (PSD)",            filetype: "psd"  },
+  { label: "Submission Checklist (PDF)",           filetype: "pdf"  },
+];
 
 export default function TVProjectDetail() {
   const { id } = useParams();
-  const nav = useNavigate();
   const [p, setP] = useState(null);
-  const [selected, setSelected] = useState(new Set());
-  const [proposalName, setProposalName] = useState("");
-  const [clientRef, setClientRef] = useState("");
-  const [offerAmount, setOfferAmount] = useState("");
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applied, setApplied] = useState(false);
 
   useEffect(() => { api.get(`/tv-projects/${id}`).then(r => setP(r.data)); }, [id]);
-  const taken = useMemo(() => new Set((p?.sponsored_episodes || []).map(e => e.episode)), [p]);
+  useEffect(() => {
+    api.get("/my-productions")
+       .then(r => setApplied(r.data.some(a => a.tv_project_id === id)))
+       .catch(() => {});
+  }, [id]);
 
-  if (!p) return <div className="p-10 imh-eyebrow">Loading…</div>;
+  if (!p) return <div className="p-10 imh-eyebrow" data-testid="project-loading">Loading…</div>;
 
-  const toggleEp = (n) => { if (taken.has(n)) return; const s = new Set(selected); s.has(n) ? s.delete(n) : s.add(n); setSelected(s); };
-
-  const submit = async () => {
-    if (!proposalName || !clientRef || selected.size === 0 || !offerAmount)
-      return toast.error("Complete the proposal form");
-    if (Number(offerAmount) <= 0) return toast.error("Offer amount must be positive");
-    setBusy(true);
-    try {
-      await api.post("/sponsorships", {
-        tv_project_id: p.id,
-        proposal_name: proposalName,
-        client_reference: clientRef,
-        episode_numbers: Array.from(selected),
-        offer_amount_usd: Number(offerAmount),
-        notes,
-      });
-      toast.success("Sponsorship proposal submitted for review");
-      nav("/rep/sponsorships");
-    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
-    finally { setBusy(false); }
-  };
+  const specs = p.technical_specs || {};
+  const brand = p.brand_guidelines || {};
+  const opportunities = (p.sponsorship_opportunities?.length ? p.sponsorship_opportunities : DEFAULT_SPONSORSHIP);
+  const downloads = (p.download_assets?.length ? p.download_assets : DEFAULT_DOWNLOADS);
+  const languages = (p.languages || []).join(" · ");
 
   return (
-    <div className="min-h-screen">
-      <div className="relative w-full h-[560px] bg-[#050A18]">
-        {p.hero_image_url && <img src={p.hero_image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(5,10,24,0.35) 0%, rgba(5,10,24,0.95) 100%)" }} />
-        <div className="relative z-10 h-full max-w-6xl mx-auto px-10 pt-8 pb-14 flex flex-col text-white">
-          <Link to="/rep/tv" className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#C7CBD9] hover:text-white" data-testid="back-catalog"><ChevronLeft size={14} /> Sponsorship catalog</Link>
-          <div className="mt-auto">
-            <div className="imh-eyebrow" style={{ color: "#C7CBD9" }}>Independent TV — Original production</div>
-            <h1 className="font-editorial text-6xl leading-[1.02] mt-4 max-w-3xl">{p.title}</h1>
-            <p className="mt-6 text-[17px] text-[#D6DAE7] max-w-2xl leading-relaxed">{p.tagline}</p>
+    <div>
+      {/* Hero */}
+      <div className="relative bg-[#0A1128] text-white" data-testid="project-hero">
+        <div className="absolute inset-0 opacity-40" style={{
+          backgroundImage: p.hero_image_url ? `url(${p.hero_image_url})` : "linear-gradient(135deg, #0A1128, #1E293B)",
+          backgroundSize: "cover", backgroundPosition: "center",
+        }} />
+        <div className="relative px-10 py-16">
+          <Link to="/rep/tv" className="text-[11px] uppercase tracking-widest text-[#B8C1DA] inline-flex items-center gap-1 hover:text-white" data-testid="hero-back">
+            <ChevronLeft size={12} /> Project Library
+          </Link>
+          <div className="mt-8 flex items-center gap-3 flex-wrap text-[11px] font-mono-imh">
+            <Chip color="#B45309">{(p.category || "tv_formats").replace("_", " ")}</Chip>
+            <Chip color="#166534">{p.status}</Chip>
+            {p.duration_minutes && <Chip color="#0033A0">{p.duration_minutes} min</Chip>}
+            {p.difficulty && <Chip color="#52525B">{p.difficulty}</Chip>}
+          </div>
+          <h1 className="font-editorial text-5xl xl:text-6xl mt-4 max-w-4xl">{p.title}</h1>
+          {p.tagline && <div className="mt-3 text-lg italic text-[#C9D1E4] max-w-3xl">{p.tagline}</div>}
+          <div className="mt-8 flex items-center gap-3 flex-wrap">
             {p.demo_video_url && (
-              <button onClick={() => setShowVideo(true)} className="mt-8 inline-flex items-center gap-2 text-sm border border-white/40 px-4 py-2 hover:bg-white hover:text-black" style={{ transition: "background 160ms, color 160ms" }} data-testid="watch-demo">
-                <PlayCircle size={18} /> Watch demo
+              <button onClick={() => setShowVideo(true)} data-testid="watch-trailer"
+                      className="inline-flex items-center gap-2 h-11 px-5 bg-white text-[#0A1128] text-[12px] uppercase tracking-widest hover:bg-[#F9F9F6]"
+                      style={{ transition: "background 120ms" }}>
+                <PlayCircle size={16} /> Watch trailer
               </button>
+            )}
+            {applied ? (
+              <span className="inline-flex items-center gap-2 h-11 px-5 bg-[#166534] text-white text-[12px] uppercase tracking-widest" data-testid="applied-badge">
+                <Send size={14} /> Application submitted
+              </span>
+            ) : (
+              <Button onClick={() => setApplyOpen(true)} data-testid="apply-btn"
+                      className="rounded-none h-11 px-5 bg-[#0033A0] hover:bg-[#002277] text-white">
+                <Send size={14} className="mr-2" /> Apply to produce
+              </Button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-10 py-16 grid grid-cols-1 lg:grid-cols-12 gap-14">
-        <article className="lg:col-span-8">
-          <section>
-            <div className="imh-eyebrow">Synopsis</div>
-            <p className="font-editorial text-2xl leading-relaxed mt-4 text-[#0A0A0A]">{p.synopsis}</p>
-          </section>
+      <div className="px-10 py-14 space-y-14 max-w-6xl">
+        {/* Overview */}
+        <Section {...SECTION_META[0]}>
+          {p.concept && <Para>{p.concept}</Para>}
+          {p.synopsis && <Para muted>{p.synopsis}</Para>}
+          {p.purpose && <Blockquote label="Why this project exists">{p.purpose}</Blockquote>}
+        </Section>
 
-          <section className="mt-14 grid grid-cols-2 gap-8 border-t border-[#E4E4E1] pt-10">
-            <Facts label="Target audience" value={p.target_audience || "—"} />
-            <Facts label="Distribution" value={p.distribution || "—"} />
-            <Facts label="Languages" value={(p.languages || []).join(", ") || "—"} />
-            <Facts label="Episodes" value={p.total_episodes} />
-            <Facts label="Currently sponsored" value={`${p.sponsored_episodes?.length || 0} / ${p.total_episodes}`} />
-            <Facts label="Format" value="Negotiated proposal" />
-          </section>
-
-          {p.sponsorship_rights && (
-            <section className="mt-14 border-t border-[#E4E4E1] pt-10">
-              <div className="imh-eyebrow">Sponsorship rights</div>
-              <p className="mt-4 text-[15px] leading-relaxed text-[#0A0A0A]">{p.sponsorship_rights}</p>
-            </section>
-          )}
-
-          <section className="mt-14 border-t border-[#E4E4E1] pt-10">
-            <div className="imh-eyebrow">Episode Availability</div>
-            <h3 className="font-editorial text-2xl mt-2">Select the episodes for your proposal</h3>
-            <div className="mt-6 grid grid-cols-6 md:grid-cols-10 gap-2" data-testid="episode-grid">
-              {Array.from({ length: p.total_episodes }, (_, i) => i + 1).map(n => {
-                const isTaken = taken.has(n);
-                const isSel = selected.has(n);
-                return (
-                  <button key={n} onClick={() => toggleEp(n)} disabled={isTaken}
-                    data-testid={`ep-${n}`}
-                    className={`h-10 text-xs font-mono-imh border ${isTaken ? "bg-[#F5F0E1] border-[#E4E4E1] text-[#A1A1AA] cursor-not-allowed line-through" : isSel ? "bg-[#0033A0] text-white border-[#0033A0]" : "bg-white border-[#E4E4E1] hover:border-[#0A0A0A]"}`}
-                    style={{ transition: "background 120ms" }}>
-                    {String(n).padStart(3, "0")}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-3 flex gap-4 text-[11px] text-[#52525B]">
-              <span><span className="inline-block w-3 h-3 border border-[#E4E4E1] bg-white align-middle mr-1"></span>Available</span>
-              <span><span className="inline-block w-3 h-3 bg-[#0033A0] align-middle mr-1"></span>Your selection</span>
-              <span><span className="inline-block w-3 h-3 bg-[#F5F0E1] align-middle mr-1"></span>Already sponsored</span>
-            </div>
-          </section>
-        </article>
-
-        <aside className="lg:col-span-4">
-          <div className="imh-card p-6 sticky top-6" data-testid="sponsorship-proposal-form">
-            <div className="imh-eyebrow">Commercial proposal</div>
-            <h3 className="font-editorial text-2xl mt-2">Submit for review</h3>
-            <div className="mt-6 space-y-4">
-              <F label="Proposal name"><Input data-testid="sp-name" value={proposalName} onChange={e => setProposalName(e.target.value)} /></F>
-              <F label="Client reference (private)"><Input data-testid="sp-client" value={clientRef} onChange={e => setClientRef(e.target.value)} /></F>
-              <F label="Your offer to Independent Media Network (USD)">
-                <Input data-testid="sp-offer" type="number" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} />
-              </F>
-              <F label="Notes"><Textarea data-testid="sp-notes" rows={3} className="rounded-none" value={notes} onChange={e => setNotes(e.target.value)} /></F>
-            </div>
-            <dl className="mt-6 divide-y divide-[#E4E4E1]">
-              <Row label="Episodes selected" value={<span className="font-mono-imh">{selected.size}</span>} />
-              <Row label="Status after submit" value={<span className="font-mono-imh text-[#B45309]">Pending review</span>} />
-            </dl>
-            <Button onClick={submit} disabled={busy} data-testid="sp-submit" className="mt-6 w-full h-11 rounded-none bg-[#0033A0] hover:bg-[#002277] text-white">
-              {busy ? "Submitting…" : "Submit for review"} <Send size={14} className="ml-2" />
-            </Button>
-            <p className="mt-3 text-[11px] text-[#52525B]">Your customer relationship stays private. Independent Media Network administrators will decide on your proposal.</p>
+        {/* Audience */}
+        <Section {...SECTION_META[1]}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Facet label="Demographics" value={p.audience_demographics || p.target_audience || "—"} />
+            <Facet label="Interests" value={p.audience_interests || "—"} />
           </div>
-        </aside>
+        </Section>
+
+        {/* Format */}
+        <Section {...SECTION_META[2]}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <Facet label="Season length"   value={p.total_episodes ? `${p.total_episodes} episodes` : "—"} />
+            <Facet label="Running time"    value={p.duration_minutes ? `${p.duration_minutes} minutes` : "—"} />
+            <Facet label="Distribution"    value={p.distribution || "Independent TV network"} />
+            <Facet label="Languages"       value={languages || "—"} />
+          </div>
+          {p.production_format && <Para muted>{p.production_format}</Para>}
+        </Section>
+
+        {/* Sponsorship — informational only */}
+        <Section {...SECTION_META[3]}>
+          <Para muted>
+            Country Partners negotiate sponsorship independently in their own market. The suggestions below are informational and reflect
+            common sponsorship tiers used across the Independent Media Network. <b>No pricing is provided.</b>
+          </Para>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4" data-testid="sponsorship-opportunities">
+            {opportunities.map((o, i) => (
+              <div key={i} className="imh-card p-4">
+                <div className="imh-eyebrow" style={{ color: "#B45309" }}>Tier · {i + 1}</div>
+                <div className="mt-2 font-editorial text-lg">{o}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* Technical specs */}
+        <Section {...SECTION_META[4]}>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6" data-testid="tech-specs">
+            <Facet label="Cameras"       value={specs.cameras       || "Broadcast-grade cinema cameras"} />
+            <Facet label="Resolution"    value={specs.resolution    || "3840×2160 UHD · minimum 1920×1080 HD"} />
+            <Facet label="Frame rate"    value={specs.frame_rate    || "25 fps (PAL) or 29.97 fps (NTSC)"} />
+            <Facet label="Audio"         value={specs.audio         || "48 kHz · 24-bit · stereo master"} />
+            <Facet label="Graphics"      value={specs.graphics      || "Provided graphics package · lower thirds included"} />
+            <Facet label="Delivery"      value={specs.delivery      || "ProRes 422 HQ · MP4 H.264 web master"} />
+            <Facet label="Subtitles"     value={specs.subtitles     || "SRT · burned-in localized track"} />
+            <Facet label="Thumbnails"    value={specs.thumbnails    || "16:9 · 1920×1080 · JPG/PNG"} />
+          </div>
+        </Section>
+
+        {/* Brand guidelines */}
+        <Section {...SECTION_META[5]}>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6" data-testid="brand-guidelines">
+            <Facet label="Logo usage"        value={brand.logo         || "Independent Projects wordmark · clear space enforced"} />
+            <Facet label="Intro sequence"    value={brand.intro        || "5-second animated logo sting"} />
+            <Facet label="Outro sequence"    value={brand.outro        || "10-second credits + IP wordmark"} />
+            <Facet label="Music"             value={brand.music        || "Signature score · provided cue package"} />
+            <Facet label="Fonts"             value={brand.fonts        || "Playfair Display · IBM Plex Sans · IBM Plex Mono"} />
+            <Facet label="Motion graphics"   value={brand.motion       || "Provided After Effects package"} />
+          </div>
+          <Para muted>Productions from different countries must feel like they belong to one international brand.</Para>
+        </Section>
+
+        {/* Downloads */}
+        <Section {...SECTION_META[6]}>
+          <Para muted>
+            Every download is designed for Country Partners to customize locally. The Sponsor Presentation is editable — add your own
+            logo, contact details and local sponsorship information before presenting it to potential sponsors.
+          </Para>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4" data-testid="downloads-list">
+            {downloads.map((d, i) => (
+              <a key={i} href={d.url || "#"} download data-testid={`download-${i}`}
+                 onClick={e => { if (!d.url) { e.preventDefault(); toast.info("This asset will be available once the project is officially published."); } }}
+                 className="flex items-center justify-between p-4 border border-[#E4E4E1] hover:border-[#0033A0] hover:bg-[#F9F9F6]"
+                 style={{ transition: "background 120ms, border-color 120ms" }}>
+                <div>
+                  <div className="font-editorial text-base">{d.label}</div>
+                  {d.filetype && <div className="text-[10px] font-mono-imh uppercase tracking-widest text-[#52525B] mt-1">{d.filetype}</div>}
+                </div>
+                <Download size={16} className="text-[#0033A0]" />
+              </a>
+            ))}
+          </div>
+        </Section>
       </div>
 
+      <ApplyDialog open={applyOpen} onOpenChange={setApplyOpen} project={p} onDone={() => setApplied(true)} />
+
       {showVideo && p.demo_video_url && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6" onClick={() => setShowVideo(false)}>
-          <div className="w-full max-w-5xl" onClick={e => e.stopPropagation()}>
-            <video src={p.demo_video_url} controls autoPlay className="w-full h-auto" />
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6" onClick={() => setShowVideo(false)} data-testid="video-overlay">
+          <div className="w-full max-w-4xl aspect-video bg-black" onClick={e => e.stopPropagation()}>
+            <iframe src={p.demo_video_url} title="Trailer" className="w-full h-full" allowFullScreen frameBorder="0" />
           </div>
         </div>
       )}
@@ -150,11 +200,69 @@ export default function TVProjectDetail() {
   );
 }
 
-const F = ({ label, children }) => <div><Label className="text-[11px] uppercase tracking-widest text-[#52525B]">{label}</Label><div className="mt-2">{children}</div></div>;
-const Row = ({ label, value }) => <div className="flex items-center justify-between py-2.5 text-sm"><span className="text-[#52525B]">{label}</span><span>{value}</span></div>;
-const Facts = ({ label, value }) => (
+function ApplyDialog({ open, onOpenChange, project, onDone }) {
+  const [message, setMessage] = useState("");
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/tv-projects/${project.id}/apply`, { tv_project_id: project.id, message, target_launch_date: target });
+      onOpenChange(false);
+      setTimeout(() => { toast.success("Your application to produce has been submitted."); onDone && onDone(); }, 0);
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-none border border-[#0A0A0A] max-w-lg" data-testid="apply-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-editorial text-2xl">Apply to produce · {project.title}</DialogTitle>
+          <DialogDescription className="text-xs text-[#52525B]">
+            Register your intention to produce this project in your territory. The Independent Media Network team will review your application and reach out to co-ordinate next steps.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 gap-3 mt-2">
+          <div>
+            <Label className="imh-eyebrow">Message to the network</Label>
+            <Textarea rows={4} className="rounded-none mt-2" value={message} onChange={e => setMessage(e.target.value)} data-testid="apply-message"
+                       placeholder="Share your local production plan, preferred timing, and any sponsors already in conversation." />
+          </div>
+          <div>
+            <Label className="imh-eyebrow">Target launch date (optional)</Label>
+            <Input type="date" className="rounded-none mt-2" value={target} onChange={e => setTarget(e.target.value)} data-testid="apply-target" />
+          </div>
+        </div>
+        <DialogFooter className="mt-4">
+          <Button onClick={submit} disabled={busy} data-testid="apply-submit" className="rounded-none bg-[#0033A0] hover:bg-[#002277]">
+            {busy ? "Submitting…" : "Submit application"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const Chip = ({ children, color }) => (
+  <span className="inline-block px-2 py-1 uppercase tracking-widest text-[10px]" style={{ background: color, color: "#fff" }}>{children}</span>
+);
+const Section = ({ icon: Icon, eyebrow, title, children }) => (
+  <section>
+    <div className="imh-eyebrow flex items-center gap-2"><Icon size={11} strokeWidth={1.6} /> {eyebrow}</div>
+    <h2 className="font-editorial text-3xl mt-2 mb-6">{title}</h2>
+    {children}
+  </section>
+);
+const Para = ({ children, muted }) => <p className={`text-[15px] leading-relaxed max-w-3xl ${muted ? "text-[#52525B]" : "text-[#0A0A0A]"}`}>{children}</p>;
+const Facet = ({ label, value }) => (
   <div>
-    <div className="imh-eyebrow">{label}</div>
-    <div className="mt-2 text-[16px] font-editorial">{value}</div>
+    <div className="text-[10px] uppercase tracking-widest text-[#52525B]">{label}</div>
+    <div className="mt-2 text-[15px] text-[#0A0A0A]">{value}</div>
   </div>
+);
+const Blockquote = ({ children, label }) => (
+  <blockquote className="mt-6 border-l-2 border-[#0033A0] bg-[#F9F9F6] p-5 max-w-3xl">
+    <div className="imh-eyebrow" style={{ color: "#0033A0" }}>{label}</div>
+    <div className="mt-2 text-[15px] italic text-[#0A0A0A]">{children}</div>
+  </blockquote>
 );

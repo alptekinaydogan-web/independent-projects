@@ -1,4 +1,4 @@
-// ISO 3166-1 alpha-2 → numeric-3 mapping for the countries in Independent Commerce inventory.
+// ISO 3166-1 alpha-2 → numeric-3 mapping for the countries in Independent Projects inventory.
 // Numeric codes are used by world-atlas topojson features (id field).
 export const ISO2_TO_NUM = {
   GB: "826", DE: "276", FR: "250", IT: "380", ES: "724", NL: "528", SE: "752",

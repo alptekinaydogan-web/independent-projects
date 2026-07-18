@@ -24,12 +24,12 @@ def _reset_html(name: str, reset_link: str) -> str:
       <tr><td align="center">
         <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #E4E4E1;">
           <tr><td style="padding:32px 40px 8px 40px;">
-            <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#52525B;">Independent Commerce</div>
+            <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#52525B;">Independent Projects</div>
             <h1 style="font-family:Georgia,serif;font-size:28px;font-weight:600;margin:12px 0 0 0;color:#0A0A0A;">Reset your password</h1>
           </td></tr>
           <tr><td style="padding:16px 40px 8px 40px;color:#0A0A0A;font-size:15px;line-height:1.6;">
             <p style="margin:0 0 16px 0;">Hi {name or 'there'},</p>
-            <p style="margin:0 0 16px 0;">We received a request to reset the password for your Independent Commerce account. This link is valid for 60 minutes.</p>
+            <p style="margin:0 0 16px 0;">We received a request to reset the password for your Independent Projects account. This link is valid for 60 minutes.</p>
           </td></tr>
           <tr><td style="padding:16px 40px 24px 40px;">
             <a href="{reset_link}" style="display:inline-block;background:#0033A0;color:#ffffff;text-decoration:none;padding:14px 24px;font-size:14px;letter-spacing:0.02em;">Reset password &rarr;</a>
@@ -54,7 +54,7 @@ async def send_password_reset_email(to_email: str, name: str, token: str) -> boo
         await asyncio.to_thread(resend.Emails.send, {
             "from": RESEND_FROM_EMAIL,
             "to": [to_email],
-            "subject": "Reset your Independent Commerce password",
+            "subject": "Reset your Independent Projects password",
             "html": _reset_html(name, link),
         })
         logger.info(f"password reset email sent to {to_email}")
@@ -87,7 +87,7 @@ def _proposal_html(name: str, kind: str, proposal: dict, link: str) -> str:
       <tr><td align="center">
         <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #E4E4E1;">
           <tr><td style="padding:32px 40px 8px 40px;">
-            <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#52525B;">Independent Commerce</div>
+            <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#52525B;">Independent Projects</div>
             <div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:#166534;margin-top:6px;">Proposal approved</div>
             <h1 style="font-family:Georgia,serif;font-size:28px;font-weight:600;margin:14px 0 4px 0;color:#0A0A0A;">Your proposal is ready to share</h1>
             <div style="color:#52525B;font-size:13px;">{kind_label} · {inventory_line}</div>

@@ -1,4 +1,4 @@
-"""Authentication + authorization helpers for Independent Commerce."""
+"""Authentication + authorization helpers for Independent Projects."""
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import bcrypt

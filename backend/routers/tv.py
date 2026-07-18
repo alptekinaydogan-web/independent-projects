@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from core import db, now_iso, ADMIN_ROLES, logger
 from models import (TVProjectCreate, TVProjectUpdate, TVProjectStatusUpdate,
                     TVProposalCreate, ProposalDecisionBody, ProposalArchiveBody,
-                    ProposalDuplicateOverrides)
+                    ProposalDuplicateOverrides, ApplyToProduceBody)
 from security import get_current_user, require_admin, require_rep
 from audit_helper import audit
 from notifications import notify, notify_all_admins, notify_all_active_reps
@@ -97,6 +97,63 @@ async def get_tv_project(project_id: str, user: dict = Depends(get_current_user)
     p["sponsored_episodes"] = eps
     return p
 
+
+
+
+# ------------------------------------------------------------------
+# Apply to Produce — Country Partners register intent to produce a
+# specific Independent Project in their territory. Informational only —
+# no pricing, no sponsorship terms.
+# ------------------------------------------------------------------
+@router.post("/tv-projects/{project_id}/apply")
+async def apply_to_produce(project_id: str, body: ApplyToProduceBody,
+                            user: dict = Depends(require_rep)):
+    project = await db.tv_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.get("status") != "active":
+        raise HTTPException(status_code=400, detail="This project is not open for new productions")
+    existing = await db.productions.find_one({"tv_project_id": project_id, "rep_id": user["id"]})
+    if existing:
+        raise HTTPException(status_code=409, detail="You have already applied to produce this project")
+    app_doc = {
+        "id": str(uuid.uuid4()),
+        "tv_project_id": project_id, "tv_project_title": project["title"],
+        "rep_id": user["id"], "rep_name": user["name"],
+        "agency_name": user.get("agency_name", ""), "country": user.get("country", ""),
+        "message": body.message or "",
+        "target_launch_date": body.target_launch_date or "",
+        "status": "submitted",
+        "created_at": now_iso(),
+    }
+    await db.productions.insert_one(app_doc)
+    await audit(user, "production.apply", "tv_project", project_id, {"application_id": app_doc["id"]})
+    await notify_all_admins(
+        event_type="production.applied",
+        title=f"Production application · {project['title']}",
+        message=f"{user.get('agency_name', user['name'])} ({user.get('country', '—')}) wants to produce this project in their territory.",
+        entity_type="tv_project", entity_id=project_id,
+        link="/admin/tv-projects",
+        severity="action_required",
+    )
+    app_doc.pop("_id", None)
+    return app_doc
+
+
+@router.get("/tv-projects/{project_id}/applications")
+async def list_applications(project_id: str, admin: dict = Depends(require_admin)):
+    apps = await db.productions.find({"tv_project_id": project_id}).sort("created_at", -1).to_list(200)
+    for a in apps:
+        a.pop("_id", None)
+    return apps
+
+
+@router.get("/my-productions")
+async def my_productions(user: dict = Depends(require_rep)):
+    apps = await db.productions.find({"rep_id": user["id"]}).sort("created_at", -1).to_list(200)
+    for a in apps:
+        a.pop("_id", None)
+    return apps
 
 @router.post("/admin/tv-projects")
 async def create_tv_project(body: TVProjectCreate, admin: dict = Depends(require_admin)):

@@ -1,4 +1,4 @@
-"""Pydantic models used across Independent Commerce routers."""
+"""Pydantic models used across Independent Projects routers."""
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 
@@ -102,6 +102,19 @@ class TVProjectCreate(BaseModel):
     total_episodes: int
     sponsorship_rights: Optional[str] = ""
     status: str = "active"  # active | draft | closed
+    # Independent Projects — enriched project package fields
+    category: Optional[str] = "tv_formats"     # tv_formats | events | podcasts | documentaries | ...
+    duration_minutes: Optional[int] = None
+    difficulty: Optional[str] = ""             # entry | intermediate | advanced
+    concept: Optional[str] = ""
+    purpose: Optional[str] = ""
+    audience_demographics: Optional[str] = ""
+    audience_interests: Optional[str] = ""
+    production_format: Optional[str] = ""
+    technical_specs: Optional[dict] = None     # cameras / resolution / frame_rates / audio / graphics / delivery
+    brand_guidelines: Optional[dict] = None    # logo / intro / outro / music / fonts / opening / closing
+    sponsorship_opportunities: Optional[List[str]] = None  # informational only
+    download_assets: Optional[List[dict]] = None           # [{label, url, filetype}]
 
 
 class TVProjectUpdate(BaseModel):
@@ -116,6 +129,24 @@ class TVProjectUpdate(BaseModel):
     total_episodes: Optional[int] = None
     sponsorship_rights: Optional[str] = None
     status: Optional[str] = None
+    category: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    difficulty: Optional[str] = None
+    concept: Optional[str] = None
+    purpose: Optional[str] = None
+    audience_demographics: Optional[str] = None
+    audience_interests: Optional[str] = None
+    production_format: Optional[str] = None
+    technical_specs: Optional[dict] = None
+    brand_guidelines: Optional[dict] = None
+    sponsorship_opportunities: Optional[List[str]] = None
+    download_assets: Optional[List[dict]] = None
+
+
+class ApplyToProduceBody(BaseModel):
+    tv_project_id: str
+    message: Optional[str] = ""
+    target_launch_date: Optional[str] = ""
 
 
 class TVProjectStatusUpdate(BaseModel):

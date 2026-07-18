@@ -76,7 +76,7 @@ export default function Login() {
       <div className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-[420px]">
           <div className="imh-eyebrow" data-testid="login-eyebrow">Authorized access</div>
-          <h2 className="font-editorial text-4xl mt-3 leading-tight">Sign in to Independent Commerce</h2>
+          <h2 className="font-editorial text-4xl mt-3 leading-tight">Sign in to Independent Projects</h2>
           <p className="text-sm text-[#52525B] mt-3">
             Reserved for licensed Independent Media Network Partners.
           </p>

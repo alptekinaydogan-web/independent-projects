@@ -40,7 +40,7 @@ export default class ErrorBoundary extends React.Component {
               {this.props.label ? `${this.props.label} temporarily unavailable` : "Something went wrong"}
             </h2>
             <p className="text-sm text-[#52525B] mt-3 max-w-lg">
-              This section could not render. Other parts of Independent Commerce remain fully operational.
+              This section could not render. Other parts of Independent Projects remain fully operational.
               You can retry the section below or use the navigation on the left to continue working.
             </p>
             <pre className="mt-4 p-3 bg-[#F9F9F6] border border-[#E4E4E1] text-[11px] text-[#52525B] font-mono-imh overflow-auto max-h-32">

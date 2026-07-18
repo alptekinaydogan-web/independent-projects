@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 19 — Independent Projects pivot. Backend apply-to-produce endpoints (POST /tv-projects/{id}/apply, GET /my-productions, GET /tv-projects/{id}/applications) all work: 200 on first submit, 409 on duplicate, 400 on inactive project. Backend regression (campaigns, inventory) still responds. Rep frontend: sidebar wordmark 'Projects', clean nav with NO banner items, Project Detail page renders all 7 sections (hero, sponsorship-opportunities, tech-specs, brand-guidelines, downloads-list) with data-testids, applied-badge displays for already-applied projects, downloads without URL fire the expected toast. Apply flow verified via backend (frontend badge state visible). ADMIN sidebar still leaks banner marketplace UI — Inventory Catalog, Proposals Review (with Banner tab), and Project Proposals items are still rendered, which contradicts the pivot requirement.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AppShell (admin sidebar)", "issue": "Admin sidebar still exposes banner marketplace items 'Inventory Catalog' (nav-admin-inventory), 'Proposals Review' (nav-admin-review — page has a BANNER (8) tab), and 'Project Proposals' (nav-admin-editorial). Requirement is to expose only Dashboard, Notifications, Project Library / Submissions Review / Partner Submissions, Reports & Compliance, Settings.", "selector": "aside [data-testid='nav-admin-inventory'|'nav-admin-review'|'nav-admin-editorial']", "priority": "HIGH"},
+      {"component": "TVProjectDetail Section", "issue": "React console warning: spreading a props object containing 'key' into <Section {...SECTION_META[i]}>. Move key out of the spread (e.g., key={m.key} {...m}) — cosmetic but noisy in console.", "selector": "TVProjectDetail.jsx L99-168", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/reports", "issues": ["Recharts warns width(-1)/height(-1) — chart container has no measurable size on initial render; may render blank until viewport resize"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration19.py", "/app/test_reports/pytest/iteration19.xml"],
+  "action_items": [
+    "Remove admin sidebar items: nav-admin-inventory (Inventory Catalog), nav-admin-review (Proposals Review) and nav-admin-editorial (Project Proposals). Replace 'Commercial' section with a 'Project Library' section containing Project Library / Submissions Review / Partner Submissions per the pivot spec.",
+    "Ensure the Proposals Review page (and its Banner / TV Sponsorship tabs) is not linked from admin nav; backend routes may stay for backwards compat.",
+    "Fix React key-in-spread warning in TVProjectDetail.jsx by extracting key from SECTION_META spread.",
+    "Optionally fix recharts container sizing on /admin/reports to prevent blank charts on first paint."
+  ],
+  "critical_code_review_comments": [
+    "Admin sidebar contradicts pivot: 'Commercial' section with Inventory Catalog + Proposals Review still surfaces banner marketplace UI to admins.",
+    "TVProjectDetail props spread includes React key — bad React 18/19 pattern.",
+    "tv.py apply endpoint: existing check uses find_one without status filter — a rep with an old submitted application on a project reopened later will be blocked. Consider filtering by status != 'archived' or similar. Not blocking for MVP."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration19.py"],
+  "success_rate": {"backend": "100%", "frontend": "80%"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026!; Rep victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "Created + deleted 1 draft TV project for inactive-project test (cleaned up). Victor now has an application on the first active project — badge will remain green in future runs.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend apply flow fully verified. Focus next iteration on admin sidebar cleanup verification (banner items removed) and Partner Submissions page if newly added. Victor has existing production application on project 22bdf17f — expect 409 on POST /tv-projects/{id}/apply for that id.",
+  "rca of the issue": "AppShell.jsx admin branch still contains a 'Commercial' <Section> with Inventory Catalog, Proposals Review, TV Projects and Project Proposals items (lines 58-63). The pivot required these banner-marketplace nav items to be removed; only TV Projects (renamed to Project Library) and submission-related items should remain visible. Backend routes intentionally kept intact for data migration."
+}

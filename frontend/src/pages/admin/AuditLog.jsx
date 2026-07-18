@@ -109,7 +109,7 @@ export default function AuditLog() {
   return (
     <div>
       <PageHeader eyebrow="Compliance" title="Audit log"
-        description="Every state-changing action taken on Independent Commerce — by representatives and administrators alike. Kept as an immutable stream for accountability."
+        description="Every state-changing action taken on Independent Projects — by representatives and administrators alike. Kept as an immutable stream for accountability."
       />
       <div className="px-10 py-10 space-y-4">
         <div className="imh-card p-4 space-y-3" data-testid="audit-filters">

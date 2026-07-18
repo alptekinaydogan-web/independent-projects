@@ -1,4 +1,4 @@
-"""Independent Commerce — FastAPI application entrypoint.
+"""Independent Projects — FastAPI application entrypoint.
 
 Assembles routers, configures CORS, runs startup seeding.
 Individual endpoint logic lives in /app/backend/routers/*.
@@ -28,7 +28,7 @@ from routers.reference import router as reference_router
 from notifications import router as notifications_router
 
 
-app = FastAPI(title="Independent Commerce API")
+app = FastAPI(title="Independent Projects API")
 
 # All routes under /api
 api = APIRouter(prefix="/api")

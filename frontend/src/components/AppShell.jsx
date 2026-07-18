@@ -41,7 +41,7 @@ export default function AppShell({ role }) {
               <span className="imh-dot" style={{ background: "#fff" }} />
               <span className="imh-eyebrow" style={{ color: "#93A0C2" }}>Independent</span>
             </div>
-            <h1 className="font-editorial text-2xl leading-tight mt-1">Commerce</h1>
+            <h1 className="font-editorial text-2xl leading-tight mt-1">Projects</h1>
             <p className="text-[11px] mt-1" style={{ color: "#93A0C2", letterSpacing: "0.06em" }}>
               {isAdmin ? (isOwner ? "OWNER CONSOLE" : "ADMINISTRATOR CONSOLE") : "REPRESENTATIVE CONSOLE"}
             </p>
@@ -74,14 +74,12 @@ export default function AppShell({ role }) {
               <Item to={`${base}`} icon={LayoutGrid} testId="nav-rep-dashboard">Dashboard</Item>
               <Item to={notifBase} icon={Bell} testId="nav-rep-notifications">Notifications</Item>
             </Section>
-            <Section label="Sell">
-              <Item to={`${base}/banners`} icon={Radio} testId="nav-rep-campaigns">Banner Proposals</Item>
-              <Item to={`${base}/inventory`} icon={LayoutGrid} testId="nav-rep-inventory">Banner Inventory</Item>
-              <Item to={`${base}/tv`} icon={FilmIcon} testId="nav-rep-tv">TV Sponsorships</Item>
+            <Section label="Project Library">
+              <Item to={`${base}/tv`} icon={FilmIcon} testId="nav-rep-tv">Browse Projects</Item>
+              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Submit a Project</Item>
             </Section>
-            <Section label="Grow">
-              <Item to={`${base}/proposals`} icon={Send} testId="nav-rep-proposals">Project Proposals</Item>
-              <Item to={`${base}/reports`} icon={BarChart3} testId="nav-rep-reports">Reports</Item>
+            <Section label="Insights">
+              <Item to={`${base}/reports`} icon={BarChart3} testId="nav-rep-reports">Activity</Item>
             </Section>
           </>
         )}

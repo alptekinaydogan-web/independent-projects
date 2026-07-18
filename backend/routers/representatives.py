@@ -109,7 +109,7 @@ async def update_rep(rep_id: str, body: RepresentativeUpdate, admin: dict = Depe
                      event_type=("representative.reactivated" if active else "representative.suspended"),
                      title=("Your account was reactivated" if active
                             else "Your account was suspended"),
-                     message=(f"An administrator restored full access to your Independent Commerce account."
+                     message=(f"An administrator restored full access to your Independent Projects account."
                               if active
                               else "An administrator temporarily suspended your access. Reach out to your platform owner to restore it."),
                      entity_type="user", entity_id=rep_id,
