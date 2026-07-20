@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 24 — Verified Coolify Docker build fix (removal of jq==1.11.0 from backend/requirements.txt). Performed clean-venv install with PUBLIC PyPI ONLY (--index-url https://pypi.org/simple/ --no-cache-dir) in Python 3.11 — succeeded exit 0. pip check reports 'No broken requirements found'. jq not installed (pip show jq -> Package(s) not found). Zero `import jq` / `from jq` matches in /app/backend/**/*.py. Backend imports cleanly, exposes 58 routes. Running backend regression: owner + rep login (HTTP 200), GET /api/tv-projects (owner + rep, 200), /api/admin/system/health (200, no `jq` field, no `proposals` key), POST /api/projects (rep draft, 200), PATCH /api/admin/projects/{id}/moderate (200 with decision='approved'). Note: GET /openapi.json returns HTML because the FastAPI default openapi_url `/openapi.json` is not prefixed with /api and is intercepted by ingress -> frontend; this is preexisting infra routing behavior unrelated to the jq fix. The FastAPI title 'Independent Commerce API' is confirmed via server.py source and successful `import server`.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /openapi.json", "issue": "Routed to frontend (returns HTML) because FastAPI default openapi_url is not under /api prefix. Preexisting; not caused by jq fix. Consider setting FastAPI(openapi_url='/api/openapi.json') if a public swagger schema is desired."},
+      {"endpoint": "PATCH /api/admin/projects/{id}/moderate", "issue": "Body schema uses field name `decision` with allowed values approved/rejected/revision_requested. Original test spec mentioned `action:approve` which returns 422; not a regression (matches routers/tv.py MODERATION_DECISIONS)."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/tmp/pip_install.log (clean-venv install log)"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "jq removal is clean — no orphaned imports and no transitive deps.",
+    "Optional: pin FastAPI openapi_url to '/api/openapi.json' so schema is reachable through ingress."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "not tested (skipped per request)"},
+  "test_credentials": "admin@independentmedia.hub / Admin2026!  ,  victor.laurent@parismedia.fr / Rep2026!",
+  "seed_data_creation": "Created one test draft project via POST /api/projects (id=0984f211-a781-42fc-9c6f-01b216636c9e, title=TEST_iter24_jqfix) and approved it via moderate endpoint. Not cleaned up (DELETE /api/admin/projects/{id} returned 404 — endpoint not exposed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Coolify build fix verified end-to-end. requirements.txt (126 lines, no jq) installs cleanly from public PyPI. All 58 backend routes present and running endpoints regressions pass. If future iterations need to test openapi schema over HTTP, use /api-prefixed path or set app openapi_url.",
+  "rca of the issue": "jq==1.11.0 was an orphaned pin. It only existed on the Emergent private CDN mirror (d33sy5i8bnduwe.cloudfront.net), not on public PyPI (max public version 1.10.0). Coolify Docker build uses only public PyPI, so the pip install failed with ERROR: Could not find a version that satisfies the requirement jq==1.11.0. Removing the single line resolved the build. Verified: (a) no code imports jq, (b) pip check clean, (c) all backend routes still work."
+}
