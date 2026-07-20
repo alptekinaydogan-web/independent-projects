@@ -1,0 +1,31 @@
+{
+  "summary": "Verified Coolify build-fix (round 2): removal of emergentintegrations==0.2.0 (and prior jq==1.11.0) from /app/backend/requirements.txt. Ran fresh Python 3.11 venv install with --index-url https://pypi.org/simple/ --no-cache-dir (public PyPI ONLY, matching Coolify env). Install exited 0, 127 packages installed, pip check reported 'No broken requirements found'. FastAPI app imports cleanly with 58 routes and title 'Independent Commerce API'. Zero grep matches for emergentintegrations/litellm/jq imports in /app/backend. All previously-green endpoints (owner+rep login, tv-projects, admin/system/health, reports/overview, project draft creation) return 200 via public URL. 7/7 pytest regression tests passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter25_regression.py",
+    "/app/test_reports/pytest/iter25.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is fine on imports. Requirements pins are modern (fastapi 0.110.1, pydantic 2.13.4) — but a few pins look aspirational/future-dated (e.g. certifi==2026.6.17, pandas==3.0.3, botocore==1.43.44). They resolved on public PyPI in Jan 2026 so no action needed, but keep an eye on future stability.",
+    "No emergentintegrations, litellm, or jq imports anywhere in backend — safe to remove from requirements as done."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter25_regression.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (skipped per request)"},
+  "test_credentials": "Owner admin@independentmedia.hub / Admin2026! and Rep victor.laurent@parismedia.fr / Rep2026! both work.",
+  "seed_data_creation": "None — used existing seeded users.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The Coolify pip-install regression is fully green. Public-PyPI clean-venv install of /app/backend/requirements.txt exit 0, pip check clean. The prior iteration-24 jq removal is intact. If future iterations touch requirements.txt, re-run the same `python3.11 -m venv && pip install -r requirements.txt --index-url https://pypi.org/simple/ --no-cache-dir` sequence to catch any newly-added Emergent-private pin.",
+  "rca of the issue": "Original Coolify build failure was caused by emergentintegrations==0.2.0 being an Emergent-private package hosted at https://d33sy5i8bnduwe.cloudfront.net/simple/, not on public PyPI. Coolify's Docker build only has public PyPI configured, so pip cannot resolve the version and fails. Fix (already applied by main agent): remove the pin from requirements.txt. Verified by running the exact install command in a clean venv against public PyPI only — succeeds. No source code imports the package, so removal is safe."
+}
