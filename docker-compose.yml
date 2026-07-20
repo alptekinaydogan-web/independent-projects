@@ -1,0 +1,42 @@
+# ============================================================================
+#  Independent Commerce — Coolify-compatible Docker Compose
+#
+#  No host port bindings — Coolify's built-in reverse proxy (Traefik/Caddy)
+#  routes external HTTPS traffic to the container on `expose: 80`.
+#  Set the domain, SSL and env vars in the Coolify UI, not in this file.
+# ============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: independent-commerce:latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      # --- Required in production (set in Coolify UI → Environment) ---
+      MONGO_URL: ${MONGO_URL}
+      DB_NAME: ${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # --- Optional ---
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-onboarding@resend.dev}
+      EMERGENT_LLM_KEY: ${EMERGENT_LLM_KEY:-}
+      APP_NAME: independent-commerce
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/docs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

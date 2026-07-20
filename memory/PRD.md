@@ -1,7 +1,9 @@
-# Independent Projects — Product Requirements Document
+# Independent Commerce — Product Requirements Document
+
+> **Development freeze — 2026-02-25.** Product name is **Independent Commerce**. No further features until after successful production deployment.
 
 ## 1. Vision
-Independent Projects is the premium international **Project Library** of the Independent Media Network. Country Partners discover, download, localize and produce high-quality media projects under one unified global standard.
+Independent Commerce is the premium international **Project Library** of the Independent Media Network. Country Partners discover, download, localize and produce high-quality media projects under one unified global standard.
 
 **Not** an advertising marketplace. **Not** a self-service portal. **Closed B2B** platform for authorized representatives only.
 

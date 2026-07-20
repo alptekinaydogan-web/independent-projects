@@ -1,0 +1,16 @@
+{
+  "short_name": "Independent Commerce",
+  "name": "Independent Commerce",
+  "description": "Independent Commerce — the premium international Project Library for licensed country partners of the Independent Media Network.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0A1128",
+  "background_color": "#F9F9F6"
+}

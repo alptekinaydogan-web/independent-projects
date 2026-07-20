@@ -29,7 +29,7 @@ from routers.categories import router as categories_router
 from notifications import router as notifications_router
 
 
-app = FastAPI(title="Independent Projects API")
+app = FastAPI(title="Independent Commerce API")
 
 # All routes under /api
 api = APIRouter(prefix="/api")
