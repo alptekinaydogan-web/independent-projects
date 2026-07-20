@@ -52,12 +52,20 @@ COPY backend/ ./
 COPY --from=frontend-build /build/build /usr/share/nginx/html
 
 # --- nginx + supervisord config ---
-RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
-COPY deploy/nginx.conf /etc/nginx/nginx.conf
-COPY deploy/supervisord.conf /etc/supervisor/conf.d/independent-commerce.conf
+# Remove Debian defaults so they cannot conflict with our configuration.
+# The default /etc/supervisor/supervisord.conf ships an [include] directive
+# and its own [supervisord]/[unix_http_server]/etc. sections — installing our
+# config at that same path (instead of conf.d) prevents duplicate-section
+# errors at container start, which surface in Coolify as a CMD failure on
+# the last line of the Dockerfile.
+RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default \
+    && rm -f /etc/supervisor/supervisord.conf \
+    && rm -rf /etc/supervisor/conf.d
+COPY deploy/nginx.conf        /etc/nginx/nginx.conf
+COPY deploy/supervisord.conf  /etc/supervisor/supervisord.conf
 
-# nginx pid + tmp dirs need to be writable
-RUN mkdir -p /var/log/supervisor /var/log/nginx /var/lib/nginx/body \
+# Runtime dirs required by nginx + supervisord + the FastAPI upload flow.
+RUN mkdir -p /var/log/supervisor /var/log/nginx /var/lib/nginx/body /run \
     && chown -R www-data:www-data /var/lib/nginx /var/log/nginx
 
 EXPOSE 80
