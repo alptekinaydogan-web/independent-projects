@@ -30,7 +30,7 @@ services:
       EMERGENT_LLM_KEY: ${EMERGENT_LLM_KEY:-}
       APP_NAME: independent-commerce
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/docs"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

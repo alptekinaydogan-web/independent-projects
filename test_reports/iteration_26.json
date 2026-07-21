@@ -1,0 +1,30 @@
+{
+  "summary": "Verified 3 health endpoint aliases (/api/health, /health, /healthz) plus regression on login + core endpoints. All 9 pytest tests passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_health_and_regression.py", "/app/test_reports/pytest/iteration_26.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py `_health()` is a plain async function returning a dict — no DB call, no external dep. Correct and cheap for high-frequency polling.",
+    "/api/health registered via api.add_api_route (api = APIRouter(prefix='/api')). /health and /healthz registered on app directly with include_in_schema=False. Matches spec.",
+    "Route count = 61 (>58), FastAPI imports cleanly with minimal env vars.",
+    "requirements.txt confirmed clean of jq and emergentintegrations."
+  ],
+  "updated_files": ["/app/backend/tests/test_health_and_regression.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "N/A"},
+  "test_credentials": "Owner admin@independentmedia.hub/Admin2026! and Rep victor.laurent@parismedia.fr/Rep2026! — both login OK.",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Note: on the Emergent preview ingress, only /api/* routes reach the backend. Public URL GET /health and /healthz return frontend HTML (index.html served by React), NOT the backend JSON. This is EXPECTED — in Coolify production, nginx.conf inside the container proxies /health and /healthz directly to uvicorn:8001. To verify /health and /healthz responses in this env, hit http://127.0.0.1:8001/health directly (all 3 aliases confirmed 200 with correct JSON on the backend itself).",
+  "verified_endpoints": {
+    "GET /api/health (public ingress)": "200 {status:ok,service:independent-commerce}",
+    "GET /api/health (127.0.0.1:8001)": "200 correct body",
+    "GET /health (127.0.0.1:8001)": "200 correct body",
+    "GET /healthz (127.0.0.1:8001)": "200 correct body",
+    "POST /api/auth/login owner": "200",
+    "POST /api/auth/login rep": "200",
+    "GET /api/tv-projects": "200",
+    "GET /api/admin/system/health": "200"
+  }
+}

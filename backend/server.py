@@ -31,14 +31,31 @@ from notifications import router as notifications_router
 
 app = FastAPI(title="Independent Commerce API")
 
+
+# ---- Health endpoints ----
+# Exposed at three aliases (`/api/health`, `/health`, `/healthz`) so every
+# reverse proxy / uptime probe / container orchestrator convention works
+# out of the box. The endpoint is intentionally cheap: no DB call, no
+# external dependency, always returns HTTP 200. This is what the Docker
+# HEALTHCHECK in the production image polls.
+async def _health():
+    return {"status": "ok", "service": "independent-commerce"}
+
+
 # All routes under /api
 api = APIRouter(prefix="/api")
+api.add_api_route("/health", _health, methods=["GET"], tags=["health"])
 for r in (auth_router, reps_router,
           tv_router, proposals_router, reports_router,
           uploads_router, owner_router, audit_router, scheduler_router,
           reference_router, categories_router, notifications_router):
     api.include_router(r)
 app.include_router(api)
+
+# Root-level aliases so external uptime probes / reverse proxies that use the
+# conventional `/health` or `/healthz` paths work without any special config.
+app.add_api_route("/health",  _health, methods=["GET"], include_in_schema=False)
+app.add_api_route("/healthz", _health, methods=["GET"], include_in_schema=False)
 
 app.add_middleware(
     CORSMiddleware,

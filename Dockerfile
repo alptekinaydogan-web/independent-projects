@@ -70,8 +70,8 @@ RUN mkdir -p /var/log/supervisor /var/log/nginx /var/lib/nginx/body /run \
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://127.0.0.1/docs > /dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD curl -fsS http://127.0.0.1/api/health > /dev/null || exit 1
 
 # Run supervisord in the foreground so the container stays alive
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
