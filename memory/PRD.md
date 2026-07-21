@@ -52,6 +52,14 @@ Legacy `campaigns`, `sponsorships`, `banner_inventory` collections are dropped o
 
 ## 6. Implemented
 
+### Iteration 27 — 2026-02-26 · Coolify Deployment Hardening
+- **Root cause of Healthy⇄Unhealthy flapping addressed.** Backend startup was blocked on synchronous `run_seed()` while uvicorn workers raced to seed the same MongoDB collections, causing intermittent 5s healthcheck timeouts.
+- `backend/server.py`: `run_seed()` now runs as a fire-and-forget `asyncio.create_task` — `/api/health` responds immediately during cold start, seeding completes in the background.
+- `deploy/supervisord.conf`: uvicorn reduced to `--workers 1` + `--timeout-keep-alive 30` — eliminates the double-seed race and lowers memory footprint on small Coolify VMs.
+- `deploy/nginx.conf`: `/healthz` is now served **directly by nginx** (hardcoded `return 200`) — the Docker HEALTHCHECK stays green whenever nginx is alive, so Coolify keeps routing traffic through brief backend restarts. `/api/health` still proxies to FastAPI for observability.
+- `Dockerfile` + `docker-compose.yml`: HEALTHCHECK target switched to `/healthz`, `start_period` bumped `25s → 60s`, `retries` `3 → 5`.
+- `deploy/COOLIFY_DEPLOYMENT.md` updated with a §7.1 flapping-healthcheck troubleshooting playbook.
+
 ### Iteration 23 — 2026-02-25 · Admin Read-First Review + Moderation Sidebar
 - **New Admin project surface.** `/admin/tv-projects/{id}` now renders the FULL public Project Page (Hero + every modular block, same as `/rep/tv/{id}`) with a sticky right-hand **moderation panel**. Approve · Request revision · Reject · Publish · Feature · Archive · Internal notes · Edit project · Preview as partner all live in that sidebar.
 - **Editor moved to a secondary route.** `/admin/tv-projects/{id}/edit` hosts the modular editor form. Editor's own Publish/Feature/Archive strip is suppressed here (`hideModerationStrip`) because those controls now belong to the AdminProjectView sidebar. Editor also has a `← Back to project page` link and returns the admin to the read view after Save.
