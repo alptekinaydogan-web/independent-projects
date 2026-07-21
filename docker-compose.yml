@@ -30,11 +30,14 @@ services:
       EMERGENT_LLM_KEY: ${EMERGENT_LLM_KEY:-}
       APP_NAME: independent-commerce
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/api/health"]
+      # /healthz is served by nginx itself (no backend dependency) so
+      # the container stays "healthy" during brief uvicorn restarts and
+      # Coolify's proxy keeps routing external traffic.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
-      retries: 3
-      start_period: 25s
+      retries: 5
+      start_period: 60s
     logging:
       driver: json-file
       options:

@@ -6,6 +6,8 @@ now the Project Library (routers/tv.py) with the Apply-to-Produce
 workflow, Partner project submissions (routers/proposals.py), and a
 future-proof category catalog (routers/categories.py).
 """
+import asyncio
+
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
@@ -68,12 +70,32 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    # Storage init is quick — do it inline so uploads work as soon as the
+    # first request lands.
     try:
         init_storage()
         logger.info("Storage initialized")
     except Exception as e:
         logger.warning(f"Storage init failed (uploads disabled until fixed): {e}")
-    await run_seed()
+
+    # Seeding touches MongoDB (indexes + backfills + owner/rep creation)
+    # and can be slow on a cold container — especially against a remote
+    # MongoDB Atlas cluster during a fresh Coolify deployment.
+    #
+    # We schedule it as a fire-and-forget task so the process is
+    # immediately ready to serve `/api/health`. This keeps the Docker
+    # HEALTHCHECK green during the initial `start_period` even when the
+    # database connection needs to warm up. All routes are safe against
+    # a not-yet-seeded DB because they only read/write; the owner login
+    # will simply return 401 for a few seconds until seeding lands.
+    async def _seed_bg():
+        try:
+            await run_seed()
+            logger.info("Startup seed complete")
+        except Exception as exc:
+            logger.exception(f"Startup seed failed: {exc}")
+
+    asyncio.create_task(_seed_bg())
 
 
 @app.on_event("shutdown")

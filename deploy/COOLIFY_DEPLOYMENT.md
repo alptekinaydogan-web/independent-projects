@@ -130,6 +130,35 @@ the same build server-side.
 | Login fails on first deploy                 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` typo — reset via env    |
 | SSL certificate not issuing                 | Coolify → Proxy tab → check Traefik logs                 |
 | Password-reset emails not delivered         | `RESEND_API_KEY` empty ⇒ falls back to log-only          |
+| Container flapping Healthy ⇄ Unhealthy      | See §7.1 below                                            |
+
+### 7.1. Container flapping between Healthy and Unhealthy
+
+The Docker `HEALTHCHECK` polls `http://127.0.0.1/healthz`, which is served
+**by nginx directly** (no upstream call). So the container is considered
+healthy as soon as nginx is listening on `:80`. If it still flaps:
+
+1. **Env vars missing.** The backend fails fast on `KeyError` for
+   `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+   Supervisord restarts uvicorn in a loop; nginx stays up so `/healthz`
+   still returns 200 — but `/api/health` returns 502. Confirm every
+   required var in Coolify → Environment.
+2. **MongoDB unreachable.** Backend logs will show `ServerSelectionTimeoutError`.
+   Verify `MONGO_URL` uses the Coolify network hostname (not `localhost`).
+3. **OOM.** `docker compose stats` shows memory pegged at 100%. Reduce
+   uvicorn workers (already 1) or increase the Coolify server RAM.
+4. **Coolify proxy misrouted.** Check Coolify → the app → **Proxy** tab
+   and confirm the domain maps to port 80 of the container.
+
+To inspect a live container:
+```bash
+docker compose exec app sh
+supervisorctl status              # both processes RUNNING?
+tail -f /var/log/supervisor/backend.stderr.log
+tail -f /var/log/nginx/error.log
+curl -v http://127.0.0.1/healthz  # nginx-served (always 200)
+curl -v http://127.0.0.1/api/health  # backend-served (200 when uvicorn is up)
+```
 
 ---
 

@@ -70,8 +70,16 @@ RUN mkdir -p /var/log/supervisor /var/log/nginx /var/lib/nginx/body /run \
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
-    CMD curl -fsS http://127.0.0.1/api/health > /dev/null || exit 1
+# HEALTHCHECK targets the nginx-level /healthz endpoint which is served
+# directly by nginx (no upstream call). This means the container is
+# considered "healthy" as soon as nginx is up, which is what Coolify
+# needs to keep routing traffic to it — even during a brief backend
+# restart. Backend readiness is still observable via /api/health.
+#
+# `start_period=60s` gives the image time to boot supervisord + nginx
+# + uvicorn on cold Coolify deploys before failing checks count.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+    CMD curl -fsS http://127.0.0.1/healthz > /dev/null || exit 1
 
 # Run supervisord in the foreground so the container stays alive
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
