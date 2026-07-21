@@ -52,6 +52,13 @@ Legacy `campaigns`, `sponsorships`, `banner_inventory` collections are dropped o
 
 ## 6. Implemented
 
+### Iteration 28 — 2026-02-26 · Root Cause of Coolify Silent Startup Hang
+- **Real root cause of container flapping identified and fixed.** With `mongodb+srv://` Atlas URIs, `AsyncIOMotorClient(MONGO_URL)` performs a *synchronous* SRV DNS lookup inside its constructor (pymongo `srv_resolver.get_hosts()`). Instantiating the client at module import in `core.py` meant uvicorn hung *forever* during `import server` whenever the Coolify network couldn't resolve `_mongodb._tcp.<cluster>.mongodb.net` — supervisor showed `RUNNING`, no port bound, empty logs. Reproduced locally: import hung indefinitely with a broken SRV URL.
+- `backend/core.py`: `AsyncIOMotorClient` is now instantiated **lazily** via `_LazyDBProxy` / `_LazyClientProxy`. `db.users.find_one(...)` still works everywhere without changes; the network lookup is deferred until first Mongo call, which happens *after* uvicorn has bound its socket. `serverSelectionTimeoutMS=5000, connectTimeoutMS=5000, socketTimeoutMS=20000` are now explicit so any Mongo hiccup fails fast instead of hanging a request.
+- **Verified with a deliberately-broken SRV URL:** import completes in 0.45s, uvicorn binds in 0.66s, `/healthz` + `/api/health` return 200 immediately; only Mongo-touching endpoints fail (fast, logged).
+- `deploy/supervisord.conf`: `redirect_stderr=true` (uvicorn logs to stderr — merging into stdout makes `supervisorctl tail backend` immediately useful), shell wrapper prints `BOOT: launching uvicorn …` before exec so we can distinguish "supervisor never spawned the command" from "uvicorn hung during import", `python -u -m uvicorn` for unbuffered stdout, `PYTHONFAULTHANDLER=1` prints tracebacks on any C-level segfault.
+- `deploy/COOLIFY_DEPLOYMENT.md` §7.1 rewritten with the DNS-hang root cause and updated in-container diagnostic commands.
+
 ### Iteration 27 — 2026-02-26 · Coolify Deployment Hardening
 - **Root cause of Healthy⇄Unhealthy flapping addressed.** Backend startup was blocked on synchronous `run_seed()` while uvicorn workers raced to seed the same MongoDB collections, causing intermittent 5s healthcheck timeouts.
 - `backend/server.py`: `run_seed()` now runs as a fire-and-forget `asyncio.create_task` — `/api/health` responds immediately during cold start, seeding completes in the background.

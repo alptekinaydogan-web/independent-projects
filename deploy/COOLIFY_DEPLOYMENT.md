@@ -138,26 +138,44 @@ The Docker `HEALTHCHECK` polls `http://127.0.0.1/healthz`, which is served
 **by nginx directly** (no upstream call). So the container is considered
 healthy as soon as nginx is listening on `:80`. If it still flaps:
 
-1. **Env vars missing.** The backend fails fast on `KeyError` for
+1. **`mongodb+srv://` DNS hang (historical root cause).** Before iter 27,
+   `core.py` instantiated `AsyncIOMotorClient(MONGO_URL)` at module import
+   time. pymongo performs a *synchronous* SRV DNS lookup inside that
+   constructor; if the Coolify network can't resolve
+   `_mongodb._tcp.<cluster>.mongodb.net`, the import hangs forever —
+   uvicorn shows up as `RUNNING` under supervisor but never binds a port
+   and produces no logs (module import never completed).
+   *Fix already shipped:* the Motor client is now instantiated lazily,
+   inside a background task after uvicorn has bound its socket. Even a
+   completely broken MongoDB URL will no longer prevent the container
+   from being healthy.
+2. **Env vars missing.** The backend fails fast on `KeyError` for
    `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
    Supervisord restarts uvicorn in a loop; nginx stays up so `/healthz`
    still returns 200 — but `/api/health` returns 502. Confirm every
    required var in Coolify → Environment.
-2. **MongoDB unreachable.** Backend logs will show `ServerSelectionTimeoutError`.
-   Verify `MONGO_URL` uses the Coolify network hostname (not `localhost`).
-3. **OOM.** `docker compose stats` shows memory pegged at 100%. Reduce
+3. **MongoDB unreachable.** Backend logs will show
+   `ServerSelectionTimeoutError` (fails within 5s thanks to the explicit
+   `serverSelectionTimeoutMS`). Verify `MONGO_URL` uses the Coolify
+   network hostname (not `localhost`) and the cluster's network firewall
+   accepts the Coolify server IP.
+4. **OOM.** `docker compose stats` shows memory pegged at 100%. Reduce
    uvicorn workers (already 1) or increase the Coolify server RAM.
-4. **Coolify proxy misrouted.** Check Coolify → the app → **Proxy** tab
+5. **Coolify proxy misrouted.** Check Coolify → the app → **Proxy** tab
    and confirm the domain maps to port 80 of the container.
 
 To inspect a live container:
 ```bash
 docker compose exec app sh
-supervisorctl status              # both processes RUNNING?
-tail -f /var/log/supervisor/backend.stderr.log
+supervisorctl status                       # both processes RUNNING?
+supervisorctl tail backend                 # merged stdout+stderr — you
+                                           # should see "BOOT: launching
+                                           # uvicorn" immediately, then
+                                           # "Uvicorn running on ..."
 tail -f /var/log/nginx/error.log
-curl -v http://127.0.0.1/healthz  # nginx-served (always 200)
-curl -v http://127.0.0.1/api/health  # backend-served (200 when uvicorn is up)
+curl -v http://127.0.0.1/healthz           # nginx-served (always 200)
+curl -v http://127.0.0.1/api/health        # backend-served
+ss -tlnp | grep -E ":80|:8001"             # nginx :80 AND uvicorn :8001
 ```
 
 ---
