@@ -44,9 +44,48 @@ async def _health():
     return {"status": "ok", "service": "independent-commerce"}
 
 
+async def _health_deep():
+    """Reports whether MongoDB is reachable AND whether the two seeded
+    demo accounts actually exist. Password hashes are NEVER returned —
+    only presence/active flags. Safe to expose (read-only, no secrets).
+    Used to triage "Sign in failed / Something went wrong" issues on
+    production without shell access to the container.
+    """
+    from core import db, ADMIN_EMAIL
+    import time
+    result = {"service": "independent-commerce", "checks": {}}
+    # Mongo ping
+    t0 = time.time()
+    try:
+        from core import _get_client  # type: ignore
+        client = _get_client()
+        await client.admin.command("ping")
+        result["checks"]["mongo"] = {"ok": True, "latency_ms": int((time.time() - t0) * 1000)}
+    except Exception as exc:
+        result["checks"]["mongo"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        result["status"] = "degraded"
+        return result
+    # Seeded accounts presence check
+    accounts = {}
+    for label, email in (("owner", ADMIN_EMAIL.lower()),
+                         ("representative", "victor.laurent@parismedia.fr")):
+        try:
+            u = await db.users.find_one({"email": email}, {"_id": 0, "email": 1, "role": 1, "is_active": 1})
+            accounts[label] = {"exists": bool(u), **(u or {})}
+        except Exception as exc:
+            accounts[label] = {"exists": None, "error": f"{type(exc).__name__}: {exc}"}
+    result["checks"]["seeded_accounts"] = accounts
+    users_total = await db.users.count_documents({})
+    projects_total = await db.tv_projects.count_documents({})
+    result["checks"]["counts"] = {"users": users_total, "tv_projects": projects_total}
+    result["status"] = "ok"
+    return result
+
+
 # All routes under /api
 api = APIRouter(prefix="/api")
 api.add_api_route("/health", _health, methods=["GET"], tags=["health"])
+api.add_api_route("/health/deep", _health_deep, methods=["GET"], tags=["health"])
 for r in (auth_router, reps_router,
           tv_router, proposals_router, reports_router,
           uploads_router, owner_router, audit_router, scheduler_router,

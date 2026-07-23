@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api, { formatApiError } from "@/lib/api";
+import api, { formatApiError, describeAxiosError } from "@/lib/api";
 
 const AuthCtx = createContext(null);
 
@@ -50,7 +50,18 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return { ok: true, user: data.user };
     } catch (e) {
-      return { ok: false, error: formatApiError(e.response?.data?.detail) || e.message };
+      // Log the full axios error to the browser console so operators
+      // can see status code, response body, and code (ERR_NETWORK etc.)
+      // when triaging production login failures.
+      // eslint-disable-next-line no-console
+      console.error("[auth/login] failed:", {
+        status:      e?.response?.status,
+        statusText:  e?.response?.statusText,
+        data:        e?.response?.data,
+        code:        e?.code,
+        message:     e?.message,
+      });
+      return { ok: false, error: describeAxiosError(e) };
     }
   };
 

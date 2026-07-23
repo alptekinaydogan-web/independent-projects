@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Response, Depends
 
-from core import db, now_iso
+from core import db, now_iso, logger
 from models import LoginBody, ForgotPwBody, ResetPwBody
 from security import (
     hash_password, verify_password, create_access_token, create_refresh_token,
@@ -17,11 +17,35 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login")
 async def login(body: LoginBody, response: Response):
     email = body.email.lower().strip()
-    user = await db.users.find_one({"email": email})
-    if not user or not user.get("is_active", True):
+    logger.info(f"[auth/login] attempt email={email}")
+    try:
+        user = await db.users.find_one({"email": email})
+    except Exception:
+        # Explicit log + explicit 503 with a JSON detail so the frontend
+        # shows a real reason instead of a generic "Something went wrong"
+        # (which is what nginx-level 502/504 HTML pages collapse to).
+        logger.exception(f"[auth/login] MongoDB lookup failed for {email}")
+        raise HTTPException(status_code=503,
+                             detail="Authentication service is temporarily unavailable (database unreachable).")
+
+    if not user:
+        logger.info(f"[auth/login] no user for {email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not verify_password(body.password, user["password_hash"]):
+    if not user.get("is_active", True):
+        logger.info(f"[auth/login] user inactive: {email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    try:
+        pw_ok = verify_password(body.password, user["password_hash"])
+    except Exception:
+        # bcrypt / passlib blow-up on a corrupted hash. Return 401 (not
+        # 500) so we don't leak the internal issue, but log the trace.
+        logger.exception(f"[auth/login] password verify raised for {email}")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not pw_ok:
+        logger.info(f"[auth/login] bad password for {email}")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     access = create_access_token(user["id"], user["email"], user["role"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
@@ -29,8 +53,9 @@ async def login(body: LoginBody, response: Response):
     try:
         await db.users.update_one({"id": user["id"]}, {"$set": {"last_login_at": now_iso()}})
     except Exception:
-        pass
+        logger.exception(f"[auth/login] last_login_at update failed for {email}")
     user.pop("_id", None); user.pop("password_hash", None)
+    logger.info(f"[auth/login] success email={email} role={user.get('role')}")
     return {"user": user, "access_token": access}
 
 
