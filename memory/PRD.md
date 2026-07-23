@@ -52,6 +52,13 @@ Legacy `campaigns`, `sponsorships`, `banner_inventory` collections are dropped o
 
 ## 6. Implemented
 
+### Iteration 29 — 2026-02-26 · Blank `/rep` Screen + Redirect Loop Fix
+- **Root cause:** `Login.jsx` treated *any* truthy user object as authenticated and fell through to `/rep` for anything not admin-like. If `user.role` was missing, malformed, or unknown (stale token → deleted user, half-migrated document, unexpected `/auth/me` payload), `<Navigate to="/rep">` fired → `ProtectedRoute(role="representative")` saw `user.role !== "representative"` → `<Navigate to={landingFor(unknown)}>` which was **also `/rep`** → `<Navigate>` to the current URL is a no-op that renders `null` → totally blank white screen.
+- `pages/Login.jsx`: only auto-redirects for a **known** role (`owner`/`admin`/`representative`). Unknown role → force-logout + stay on the login form. Login submission surfaces "no valid role assigned" toast instead of navigating into a broken protected route.
+- `components/ProtectedRoute.jsx`: added a `KNOWN_ROLES` guard that force-logs-out users with an unrecognized role; extra safety `if (target === location.pathname) return <Navigate to="/" />` prevents `<Navigate>`-to-self blank screens.
+- `contexts/AuthContext.jsx`: added `isValidUser()` that rejects payloads without `id`, `email`, or a `KNOWN_ROLES` `role`. Applied on `/auth/me` refresh AND on `/auth/login` response, so the UI can never sit in a "truthy user with no valid role" state.
+- Verified E2E: `/` anon stays on `/`, `/rep` anon → `/`, owner login → `/admin`, owner→`/rep` → `/admin` (no loop), rep login → `/rep` fully renders.
+
 ### Iteration 28 — 2026-02-26 · Root Cause of Coolify Silent Startup Hang
 - **Real root cause of container flapping identified and fixed.** With `mongodb+srv://` Atlas URIs, `AsyncIOMotorClient(MONGO_URL)` performs a *synchronous* SRV DNS lookup inside its constructor (pymongo `srv_resolver.get_hosts()`). Instantiating the client at module import in `core.py` meant uvicorn hung *forever* during `import server` whenever the Coolify network couldn't resolve `_mongodb._tcp.<cluster>.mongodb.net` — supervisor showed `RUNNING`, no port bound, empty logs. Reproduced locally: import hung indefinitely with a broken SRV URL.
 - `backend/core.py`: `AsyncIOMotorClient` is now instantiated **lazily** via `_LazyDBProxy` / `_LazyClientProxy`. `db.users.find_one(...)` still works everywhere without changes; the network lookup is deferred until first Mongo call, which happens *after* uvicorn has bound its socket. `serverSelectionTimeoutMS=5000, connectTimeoutMS=5000, socketTimeoutMS=20000` are now explicit so any Mongo hiccup fails fast instead of hanging a request.

@@ -3,6 +3,17 @@ import api, { formatApiError } from "@/lib/api";
 
 const AuthCtx = createContext(null);
 
+const KNOWN_ROLES = new Set(["admin", "owner", "representative"]);
+
+// Guard against malformed /auth/me payloads (missing role, HTML SPA
+// fallback slipping through a misrouted proxy, etc.). Anything that
+// doesn't look like a real user object is treated as anonymous — the
+// UI must never sit in a "truthy but role-less user" state because
+// that used to blank-screen the app.
+function isValidUser(u) {
+  return !!(u && typeof u === "object" && KNOWN_ROLES.has(u.role) && u.id && u.email);
+}
+
 export function AuthProvider({ children }) {
   // null = checking; false = anon; object = user
   const [user, setUser] = useState(null);
@@ -10,8 +21,17 @@ export function AuthProvider({ children }) {
   const refreshMe = useCallback(async () => {
     try {
       const { data } = await api.get("/auth/me");
-      setUser(data);
-      return data;
+      if (isValidUser(data)) {
+        setUser(data);
+        return data;
+      }
+      // Payload is unusable (stale token → deleted user, migration
+      // artefact, unexpected shape). Wipe any local token and treat
+      // as anonymous so the app renders the login form instead of
+      // silently redirecting into a broken protected route.
+      localStorage.removeItem("imh_token");
+      setUser(false);
+      return null;
     } catch {
       setUser(false);
       return null;
@@ -23,6 +43,9 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       const { data } = await api.post("/auth/login", { email, password });
+      if (!isValidUser(data.user)) {
+        return { ok: false, error: "Your account has no valid role assigned. Contact the administrator." };
+      }
       if (data.access_token) localStorage.setItem("imh_token", data.access_token);
       setUser(data.user);
       return { ok: true, user: data.user };

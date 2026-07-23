@@ -9,8 +9,22 @@ import { ArrowRight } from "lucide-react";
 
 const HERO = "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
 
+const ADMIN_LIKE = new Set(["admin", "owner"]);
+const KNOWN_ROLES = new Set(["admin", "owner", "representative"]);
+
+// Where should a freshly-authenticated user land?
+// Returns null for anything unrecognized so callers can decide (we
+// never blindly navigate to `/rep` as a fallback — that path caused an
+// infinite ProtectedRoute redirect loop and a blank screen when the
+// user role was missing or malformed).
+function landingForRole(role) {
+  if (ADMIN_LIKE.has(role)) return "/admin";
+  if (role === "representative") return "/rep";
+  return null;
+}
+
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,10 +32,22 @@ export default function Login() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
 
-  const ADMIN_LIKE = new Set(["admin", "owner"]);
-
+  // Only auto-redirect for an *authenticated* session that has a
+  // *known* role. If the backend returns a truthy but role-less object
+  // (stale token pointing at a deleted user, partially-migrated user
+  // document, etc.) we stay on the login screen instead of bouncing
+  // into a protected route that will just redirect back and render
+  // blank.
   if (user && user !== false) {
-    return <Navigate to={ADMIN_LIKE.has(user.role) ? "/admin" : "/rep"} replace />;
+    const landing = landingForRole(user.role);
+    if (landing) return <Navigate to={landing} replace />;
+    // Unknown role — force sign-out so the visitor is presented with a
+    // clean login form instead of a silent blank screen.
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("imh_token");
+    }
+    logout();
+    return null;
   }
 
   const submit = async (e) => {
@@ -30,8 +56,13 @@ export default function Login() {
     const r = await login(email.trim(), password);
     setBusy(false);
     if (r.ok) {
+      const landing = landingForRole(r.user?.role);
+      if (!landing) {
+        toast.error("Sign in failed", { description: "Your account has no valid role assigned. Contact the administrator." });
+        return;
+      }
       toast.success("Signed in", { description: `Welcome, ${r.user.name}` });
-      nav(ADMIN_LIKE.has(r.user.role) ? "/admin" : "/rep", { replace: true });
+      nav(landing, { replace: true });
     } else {
       toast.error("Sign in failed", { description: r.error });
     }
